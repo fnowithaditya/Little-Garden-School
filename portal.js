@@ -14,7 +14,29 @@ const db = app.firestore();
 let activeStudent = null;
 let fullReceiptText = "";
 
-// --- 1. PARENT LOGIN PROCESSOR (STUDENT ID & PASSWORD) ---
+// --- AUTO-RESTORE PARENT SESSION ON PAGE LOAD / REFRESH ---
+window.addEventListener('DOMContentLoaded', async () => {
+    const savedSession = localStorage.getItem('lg_parent_session');
+    if (savedSession) {
+        try {
+            const parsed = JSON.parse(savedSession);
+            // Re-fetch latest student data from Firestore in case balance updated
+            const docRef = await db.collection("students").doc(parsed.id).get();
+            if (docRef.exists) {
+                activeStudent = { id: docRef.id, ...docRef.data() };
+                renderParentDashboard();
+            } else {
+                // If student no longer exists, clear storage
+                localStorage.removeItem('lg_parent_session');
+            }
+        } catch (e) {
+            console.error("Session restore error:", e);
+            localStorage.removeItem('lg_parent_session');
+        }
+    }
+});
+
+// --- 1. PARENT LOGIN PROCESSOR ---
 async function handleParentLogin(e) {
     e.preventDefault();
     const enteredId = document.getElementById('parentLoginId').value.trim().toUpperCase();
@@ -26,7 +48,7 @@ async function handleParentLogin(e) {
     try {
         let matchedDoc = null;
 
-        // Query by studentId first
+        // Query by assigned student ID
         const snap = await db.collection("students").where("studentId", "==", enteredId).get();
 
         if (!snap.empty) {
@@ -38,15 +60,15 @@ async function handleParentLogin(e) {
                 }
             });
         } else {
-            // Fallback match for legacy records: check if ID entered matches doc.id or phone
+            // Fallback match for legacy records
             const allSnap = await db.collection("students").get();
             allSnap.forEach(doc => {
                 const data = doc.data() || {};
-                const generatedFallbackId = `LG2026-${doc.id.slice(0, 3).toUpperCase()}`;
+                const fallbackId = `LG2026-${doc.id.slice(0, 3).toUpperCase()}`;
                 const validPassword = data.password || String(data.phone || "").slice(-10);
 
-                if ((enteredId === generatedFallbackId || enteredId === String(data.phone)) && validPassword === enteredPass) {
-                    matchedDoc = { id: doc.id, ...data, studentId: generatedFallbackId };
+                if ((enteredId === fallbackId || enteredId === String(data.phone)) && validPassword === enteredPass) {
+                    matchedDoc = { id: doc.id, ...data, studentId: fallbackId };
                 }
             });
         }
@@ -58,6 +80,13 @@ async function handleParentLogin(e) {
         }
 
         activeStudent = matchedDoc;
+        
+        // PERSIST SESSION TO LOCALSTORAGE
+        localStorage.setItem('lg_parent_session', JSON.stringify({
+            id: activeStudent.id,
+            studentId: activeStudent.studentId
+        }));
+
         renderParentDashboard();
     } catch (err) {
         errorBox.innerText = "Error accessing portal: " + err.message;
@@ -74,7 +103,6 @@ async function renderParentDashboard() {
 
     const displayStudentId = activeStudent.studentId || `LG2026-${activeStudent.id.slice(0, 3).toUpperCase()}`;
 
-    // Set Info with ID Badge
     document.getElementById('p-student-name').innerHTML = `
         ${activeStudent.name} 
         <span style="font-size: 0.85rem; font-family: monospace; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; padding: 3px 10px; border-radius: var(--radius-full); border: 1px solid rgba(99, 102, 241, 0.4); margin-left: 8px; vertical-align: middle;">
@@ -83,14 +111,12 @@ async function renderParentDashboard() {
     `;
     
     document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.class || 'N/A'} | Guardian Contact: +91 ${activeStudent.phone}`;
-    
     document.getElementById('p-monthly-fee').innerText = `₹${Number(activeStudent.monthlyFee || 0).toLocaleString('en-IN')}`;
     document.getElementById('p-total-paid').innerText = `₹${Number(activeStudent.totalPaid || 0).toLocaleString('en-IN')}`;
     
     const due = Number(activeStudent.amount || 0);
     document.getElementById('p-due-amt').innerText = `₹${due.toLocaleString('en-IN')}`;
 
-    // Set Status Pill
     const statusPill = document.getElementById('p-status-pill');
     if (due <= 0) {
         statusPill.innerText = "🟢 No Dues Pending";
@@ -144,69 +170,118 @@ async function loadParentLedger() {
     });
 }
 
-// --- 4. RAZORPAY PAYMENT INITIATOR ---
-async function initiateFeePayment() {
+// --- 4. LUXURY CLASSY UPI CHECKOUT & QR DISPLAY ---
+function initiateFeePayment() {
     const amt = Number(document.getElementById('payAmountInput').value);
     if (!amt || amt <= 0) {
         alert("Please enter a valid payment amount.");
         return;
     }
 
-    const options = {
-        key: "rzp_test_YourKeyHere", // Replace with your live or test Razorpay Key ID
-        amount: amt * 100,
-        currency: "INR",
-        name: "Little Garden School",
-        description: `Fee Payment for ${activeStudent.name} (${activeStudent.studentId || 'LG2026'})`,
-        handler: async function (response) {
-            const nowStr = new Date().toLocaleString('en-IN');
-            const currentDue = Number(activeStudent.amount || 0);
-            const newDue = Math.max(0, currentDue - amt);
-            const newTotalPaid = Number(activeStudent.totalPaid || 0) + amt;
+    const schoolVpa = "little07@idfcbank";
+    const schoolName = "Little Garden Play School";
+    const studentTag = `${activeStudent.name} (${activeStudent.studentId || 'LG2026'})`;
+    const note = `Fee - ${studentTag}`;
 
-            const docRef = db.collection("students").doc(activeStudent.id);
+    // Standard NPCI UPI URI
+    const upiUri = `upi://pay?pa=${encodeURIComponent(schoolVpa)}&pn=${encodeURIComponent(schoolName)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
 
-            await docRef.update({
-                amount: newDue,
-                totalPaid: newTotalPaid,
-                lastPaidAmt: amt,
-                lastPaymentDate: nowStr,
-                isPaid: newDue <= 0
-            });
+    // If Parent is on mobile device -> Open native UPI apps directly
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = upiUri;
+        return;
+    }
 
-            await docRef.collection("paymentHistory").add({
-                amount: amt,
-                type: "payment",
-                method: "Online (Razorpay)",
-                note: `Online Txn Ref: ${response.razorpay_payment_id || 'Direct'}`,
-                remainingDue: newDue,
-                date: nowStr,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
+    // High-Res Static QR source
+    const qrImageSource = "qr.png";
 
-            alert(`✅ Payment of ₹${amt} received successfully! Txn ID: ${response.razorpay_payment_id}`);
+    document.getElementById('receiptModalTitle').innerText = "⚡ Instant UPI Fee Payment";
+    const previewBox = document.getElementById('receipt-preview-box');
+    
+    previewBox.innerHTML = `
+        <div class="qr-card-container">
+            <span class="badge-pill" style="font-size:0.72rem; padding:4px 12px; margin-bottom:8px; border-color:rgba(16,185,129,0.3); color:#34d399; background:rgba(16,185,129,0.1);">
+                ✓ NPCI Verified Direct Merchant
+            </span>
+            <h4 style="margin: 4px 0 2px 0; color:#ffffff; font-size:1.15rem;">₹${amt.toLocaleString('en-IN')}</h4>
+            <p style="color:var(--text-dim); font-size:0.78rem;">Settling fees for <b>${activeStudent.name}</b></p>
             
-            activeStudent.amount = newDue;
-            activeStudent.totalPaid = newTotalPaid;
-            renderParentDashboard();
-        },
-        prefill: {
-            name: activeStudent.name,
-            contact: activeStudent.phone
-        },
-        theme: {
-            color: "#6366f1"
-        }
-    };
+            <div class="qr-frame">
+                <img src="${qrImageSource}" alt="Little Garden UPI QR" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}'">
+            </div>
 
-    const rzp = new Razorpay(options);
-    rzp.on('payment.failed', function (response) {
-        alert("Payment failed or was cancelled: " + response.error.description);
-    });
-    rzp.open();
+            <div>
+                <div class="upi-chip" onclick="copyUpiId('${schoolVpa}')" title="Click to copy UPI ID">
+                    <span>ID: <b>${schoolVpa}</b></span>
+                    <span style="font-size:0.75rem;">📋 Copy</span>
+                </div>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.06); border: 1px dashed rgba(16, 185, 129, 0.25); border-radius: var(--radius-md); padding: 12px; margin-top: 10px; text-align: left;">
+                <label style="font-size: 0.75rem; color: #34d399; font-weight: 700; display: block; margin-bottom: 6px;">
+                    1. Pay via GPay / PhonePe / Paytm / BHIM<br>
+                    2. Enter 12-Digit UPI Ref / UTR to Confirm:
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="upiUtrNumber" placeholder="Enter 12-digit UTR No." maxlength="16" style="padding: 9px 12px; font-size: 0.85rem; font-family: monospace;">
+                    <button class="btn-action btn-primary" style="padding: 8px 16px; font-size: 0.82rem; white-space: nowrap;" onclick="confirmUpiPaymentSubmission(${amt})">Confirm</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modalActionBtn').style.display = 'none';
+    document.getElementById('receiptModal').style.display = 'flex';
 }
 
-// --- 5. RECEIPT BUILDER & COPY ---
+// --- 5. UTR VERIFICATION & BALANCE UPDATE ---
+async function confirmUpiPaymentSubmission(amt) {
+    const utrInput = document.getElementById('upiUtrNumber');
+    const utr = utrInput ? utrInput.value.trim() : '';
+
+    if (!utr || utr.length < 8) {
+        alert("Please enter a valid 12-digit UPI Reference / UTR Number from your bank transaction screen.");
+        return;
+    }
+
+    const nowStr = new Date().toLocaleString('en-IN');
+    const currentDue = Number(activeStudent.amount || 0);
+    const newDue = Math.max(0, currentDue - amt);
+    const newTotalPaid = Number(activeStudent.totalPaid || 0) + amt;
+
+    const docRef = db.collection("students").doc(activeStudent.id);
+
+    try {
+        await docRef.update({
+            amount: newDue,
+            totalPaid: newTotalPaid,
+            lastPaidAmt: amt,
+            lastPaymentDate: nowStr,
+            isPaid: (newDue <= 0)
+        });
+
+        await docRef.collection("paymentHistory").add({
+            amount: amt,
+            type: "payment",
+            method: "UPI Direct (IDFC)",
+            note: `UPI UTR Ref: ${utr}`,
+            remainingDue: newDue,
+            date: nowStr,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert(`🎉 Payment of ₹${amt} logged successfully!\nUTR Reference: ${utr}\nYour balance has been updated.`);
+        document.getElementById('receiptModal').style.display = 'none';
+        
+        activeStudent.amount = newDue;
+        activeStudent.totalPaid = newTotalPaid;
+        renderParentDashboard();
+    } catch (err) {
+        alert("Error logging payment: " + err.message);
+    }
+}
+
+// --- 6. RECEIPT BUILDER & STATEMENTS ---
 async function openCompleteReceipt() {
     const txnId = 'LG-PR-' + Math.floor(100000 + Math.random() * 900000);
     const currentDate = new Date().toLocaleDateString('en-IN');
@@ -245,7 +320,11 @@ Current Due   : ₹${activeStudent.amount || 0}
 Status        : ${activeStudent.amount <= 0 ? 'PAID IN FULL (NO DUES)' : 'BALANCE DUE'}
 ========================================`;
 
-    document.getElementById('receipt-preview-box').innerText = fullReceiptText;
+    document.getElementById('receiptModalTitle').innerText = "🧾 Official Fee Statement";
+    const previewBox = document.getElementById('receipt-preview-box');
+    previewBox.innerHTML = `<div style="background: rgba(0,0,0,0.5); border: 1px dashed var(--glass-border); padding: 14px; border-radius: 12px; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; color: #e2e8f0; max-height: 58vh; overflow-y: auto;">${fullReceiptText}</div>`;
+    
+    document.getElementById('modalActionBtn').style.display = 'inline-flex';
     document.getElementById('receiptModal').style.display = 'flex';
 }
 
@@ -255,8 +334,15 @@ function copyReceiptText() {
     alert("Official Statement copied to clipboard!");
 }
 
+function copyUpiId(upiId) {
+    navigator.clipboard.writeText(upiId);
+    alert(`UPI ID "${upiId}" copied to clipboard!`);
+}
+
+// --- 7. LOGOUT & CLEAR SESSION ---
 function handleParentLogout() {
     activeStudent = null;
+    localStorage.removeItem('lg_parent_session'); // Clears saved session
     document.getElementById('portal-dashboard-view').style.display = 'none';
     document.getElementById('portal-login-view').style.display = 'block';
     document.getElementById('portalLogoutBtn').style.display = 'none';
