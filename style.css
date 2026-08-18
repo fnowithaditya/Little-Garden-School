@@ -655,3 +655,274 @@ tbody tr:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
 }
+/* Hidden state when scrolling down */
+/* Base state (visible) */
+.glass-nav {
+    transform: translateY(0);
+    opacity: 1;
+    transition: 
+        transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.3s ease;
+    will-change: transform, opacity;
+}
+
+/* Hidden state (slides up smoothly) */
+.glass-nav.nav-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   INTERACTIVE ACTIVITY STAT BANNER
+   ========================================================= */
+.interactive-banner {
+    transition: var(--transition);
+    border: 1px solid rgba(244, 63, 94, 0.25) !important;
+}
+
+.interactive-banner:hover {
+    transform: translateY(-4px);
+    border-color: rgba(244, 63, 94, 0.6) !important;
+    box-shadow: 0 12px 28px -6px rgba(244, 63, 94, 0.3) !important;
+    background: radial-gradient(circle at 100% 0%, rgba(244, 63, 94, 0.15) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
+}
+
+.gallery-badge {
+    font-size: 0.7rem;
+    font-weight: 200;
+    color: #fda4af;
+    background: rgba(244, 63, 94, 0.15);
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   MOBILE & TOUCH EXPERIENCE OPTIMIZATIONS
+   ========================================================= */
+
+/* Ensure smooth native scrolling across touch devices */
+html, body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
+/* Prevent auto-zooming on iPhone/Android inputs */
+input, select, textarea {
+    font-size: 16px !important;
+}
+
+@media (max-width: 768px) {
+    /* 1. COMPACT TOUCH NAVBAR */
+    /* AUTO-HIDE SCROLL NAVBAR */
+/* Base state (visible) */
+.glass-nav {
+    transform: translateY(0);
+    opacity: 1;
+    transition: 
+        transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.3s ease;
+    will-change: transform, opacity;
+}
+
+/* Hidden state (slides up smoothly) */
+.glass-nav.nav-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+    .nav-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .brand {
+        text-align: center;
+        font-size: 1.35rem;
+    }
+    .nav-links {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .nav-link {
+        font-size: 0.78rem;
+        padding: 6px 10px;
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 2. HERO & TYPOGRAPHY SCALING */
+    .hero-section {
+        padding: 40px 14px 24px 14px;
+    }
+    .hero-section h1 {
+        font-size: 1.95rem;
+        line-height: 1.25;
+        letter-spacing: -0.5px;
+    }
+    .hero-subtext {
+        font-size: 0.92rem;
+        margin-bottom: 22px;
+    }
+    .hero-cta-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .btn-action {
+        width: 100%;
+        min-height: 46px;
+        font-size: 0.9rem;
+    }
+
+    /* 3. LAYOUT & CARDS */
+    .app-container {
+        padding: 0 12px;
+        gap: 32px;
+    }
+    .glass-card {
+        padding: 18px 14px;
+        border-radius: var(--radius-md);
+    }
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    .stat-item h2 {
+        font-size: 1.45rem;
+    }
+    .cards-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .admission-box {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    /* 4. DASHBOARD ACTIONS & SEARCH BAR */
+    .actions-bar .action-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .search-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* 5. DATA TABLE & HORIZONTAL OVERFLOW */
+    .table-container {
+        border-radius: var(--radius-md);
+        margin-top: 12px;
+        border: 1px solid var(--glass-border);
+    }
+    table {
+        min-width: 580px;
+    }
+    th, td {
+        padding: 12px 14px;
+        font-size: 0.85rem;
+    }
+
+    /* 6. BOTTOM-SHEET MODALS FOR MOBILE */
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end; /* Slides modal in as a bottom sheet on mobile */
+    }
+    .modal-content {
+        max-width: 100%;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        max-height: 85vh;
+        padding: 20px 16px;
+    }
+    /* Ensure modal content fits viewport and enables internal scrolling */
+#receiptModal .modal-content {
+    max-height: 88vh !important;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto !important;
+    padding: 20px !important;
+}
+
+/* Allow dynamic preview box to shrink and scale cleanly */
+#receipt-preview-box {
+    overflow-y: auto;
+    max-height: 60vh;
+    margin: 10px 0 16px 0;
+}
+    .modal-header {
+        margin-bottom: 12px;
+    }
+    .quick-pay-flex {
+        grid-template-columns: 1fr !important; /* Stack quick-pay inputs vertically */
+        gap: 10px !important;
+    }
+    .modal-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .modal-grid .m-box {
+        grid-column: span 1 !important;
+    }
+
+    /* 7. FOOTER ADJUSTMENTS */
+    .site-footer {
+        margin-top: 40px;
+        padding: 24px 14px;
+    }
+    .footer-content {
+        text-align: center;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .footer-content div {
+        text-align: center !important;
+    }
+}
