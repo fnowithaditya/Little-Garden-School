@@ -154,13 +154,18 @@ function renderStudentTable(students) {
     });
 }
 
-// --- STUDENT REGISTRATION (AUTO-GENERATES ID & PASSWORD) ---
+// --- 1. STUDENT REGISTRATION (INCLUDES TUITION + TRANSPORT) ---
 async function addStudentToFirebase(e) {
     if (e) e.preventDefault();
     const name = document.getElementById('studentName').value.trim();
     const phone = document.getElementById('parentPhone').value.trim();
     const stClass = document.getElementById('studentClass').value;
-    const fee = Number(document.getElementById('feeAmount').value || 0);
+    const tuitionFee = Number(document.getElementById('feeAmount').value || 0);
+    
+    // Transport Handling
+    const hasTransport = document.getElementById('transportOptCheck').checked;
+    const transportFee = hasTransport ? Number(document.getElementById('studentTransportFee').value || 0) : 0;
+    const initialDue = tuitionFee + transportFee;
 
     if (!name) {
         alert("Student Name is required!");
@@ -178,17 +183,20 @@ async function addStudentToFirebase(e) {
             name: name.toUpperCase(),
             phone: phone || "0000000000",
             class: stClass,
-            monthlyFee: fee,
-            amount: fee,
+            monthlyFee: tuitionFee,
+            hasTransport: hasTransport,
+            transportFee: transportFee,
+            amount: initialDue,
             totalPaid: 0,
             lastPaidAmt: 0,
             lastPaymentDate: "-",
-            isPaid: fee <= 0,
+            isPaid: initialDue <= 0,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert(`✅ Student Registered!\n\nParent Portal Credentials:\nStudent ID: ${generatedId}\nPassword: ${defaultPassword}`);
+        alert(`✅ Student Registered Successfully!\n\nID: ${generatedId}\nPassword: ${defaultPassword}\nTuition Fee: ₹${tuitionFee}\nTransport Fee: ₹${transportFee}\nTotal Opening Due: ₹${initialDue}`);
         document.getElementById('addStudentForm').reset();
+        document.getElementById('transportFeeInputBox').style.display = 'none';
         showPage('dashboard');
         loadAllData();
     } catch (err) {
@@ -196,6 +204,114 @@ async function addStudentToFirebase(e) {
     }
 }
 
+// --- 2. ENROLL FROM ADMISSION LEADS (PROMPTS FOR TRANSPORT) ---
+async function enrollEnquiryAsStudent(enquiryId, encodedData) {
+    const data = JSON.parse(decodeURIComponent(encodedData));
+    const child = data.childName || data.name || 'Student';
+    const grade = data.grade || data.class || 'Nursery';
+    
+    // Step 1: Tuition Fee Prompt
+    const feeStr = prompt(`Step 1/2: Enter Base Monthly Tuition Fee for ${child} (${grade}):`, "1500");
+    if (feeStr === null) return;
+    const tuitionFee = Number(feeStr) || 0;
+
+    // Step 2: Transport Question & Fee Prompt
+    const needsTransport = confirm(`Step 2/2: Does ${child} require School Bus / Transport Service?`);
+    let transportFee = 0;
+    if (needsTransport) {
+        const transStr = prompt(`Enter Monthly Transport Fee for ${child}:`, "800");
+        transportFee = Number(transStr) || 0;
+    }
+
+    const totalInitialDue = tuitionFee + transportFee;
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const generatedId = `LG2026-${randomSuffix}`;
+    const defaultPassword = data.phone ? String(data.phone).slice(-10) : "123456";
+
+    try {
+        await db.collection("students").add({
+            studentId: generatedId,
+            password: defaultPassword,
+            name: child.toUpperCase(),
+            phone: data.phone || "0000000000",
+            class: grade,
+            monthlyFee: tuitionFee,
+            hasTransport: needsTransport,
+            transportFee: transportFee,
+            amount: totalInitialDue,
+            totalPaid: 0,
+            lastPaidAmt: 0,
+            lastPaymentDate: "-",
+            isPaid: totalInitialDue <= 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        await db.collection("admissionEnquiries").doc(enquiryId).delete().catch(() => {});
+        await db.collection("admissions").doc(enquiryId).delete().catch(() => {});
+
+        alert(`🎉 ${child} Enrolled!\nStudent ID: ${generatedId}\nTuition: ₹${tuitionFee} | Transport: ₹${transportFee}\nOpening Due: ₹${totalInitialDue}`);
+        loadAdmissionEnquiries();
+        loadAllData();
+    } catch (err) {
+        alert("Enrollment failed: " + err.message);
+    }
+}
+
+// --- 3. BATCH MONTHLY TRANSPORT FEE BILLING ---
+async function executeMonthlyTransportBilling() {
+    const targetClass = document.getElementById('billingClassTarget').value;
+    
+    if (!confirm(`Apply monthly transport fees to all enrolled transport students in: ${targetClass}?`)) return;
+
+    try {
+        let query = db.collection("students").where("hasTransport", "==", true);
+        if (targetClass !== "ALL") {
+            query = query.where("class", "==", targetClass);
+        }
+
+        const snap = await query.get();
+        if (snap.empty) {
+            alert("No students with active transport service found in this class selection.");
+            return;
+        }
+
+        const batch = db.batch();
+        let count = 0;
+        const nowStr = new Date().toLocaleString('en-IN');
+
+        snap.forEach(doc => {
+            const s = doc.data();
+            const tFee = Number(s.transportFee || 0);
+            if (tFee > 0) {
+                const newDue = (s.amount || 0) + tFee;
+                batch.update(doc.ref, {
+                    amount: newDue,
+                    isPaid: false
+                });
+
+                // Log adjustment item in history
+                const histRef = doc.ref.collection("paymentHistory").doc();
+                batch.set(histRef, {
+                    amount: tFee,
+                    type: "adjustment",
+                    method: "System",
+                    note: `Monthly Transport Fee Added (₹${tFee})`,
+                    remainingDue: newDue,
+                    date: nowStr,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                count++;
+            }
+        });
+
+        await batch.commit();
+        alert(`🚌 Successfully billed transport fee for ${count} students!`);
+        closeBillingModal();
+        loadAllData();
+    } catch (err) {
+        alert("Error applying transport fees: " + err.message);
+    }
+}
 // --- SEARCH & FILTER ---
 function filterStudents() {
     const searchVal = document.getElementById('studentSearch').value.toLowerCase();
@@ -530,55 +646,98 @@ async function deleteStudentAdmin() {
 }
 
 // --- ADMISSION LEADS MANAGEMENT ---
+// --- ADMISSION LEADS MANAGEMENT ---
 async function loadAdmissionEnquiries() {
     const tbody = document.getElementById('enquiryTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Fetching new enquiries...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:16px;">Fetching new enquiries...</td></tr>';
 
     try {
-        const snap = await db.collection("admissionEnquiries").orderBy("createdAt", "desc").get();
-        if (snap.empty) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim);">No pending admission enquiries.</td></tr>';
+        let snap = null;
+        try {
+            snap = await db.collection("admissionEnquiries").orderBy("createdAt", "desc").get();
+        } catch (e) {
+            // Fallback query if index or creation field is missing
+            snap = await db.collection("admissionEnquiries").get();
+        }
+        
+        // Fallback: If no docs exist under 'admissionEnquiries', check 'admissions'
+        if (!snap || snap.empty) {
+            try {
+                snap = await db.collection("admissions").orderBy("timestamp", "desc").get();
+            } catch (e) {
+                snap = await db.collection("admissions").get();
+            }
+        }
+
+        if (!snap || snap.empty) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:24px; font-weight:600;">✨ There are no enquiries.</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
         snap.forEach(doc => {
-            const data = doc.data();
+            const data = doc.data() || {};
+            const child = data.childName || data.name || 'Child';
+            const parent = data.parentName || 'Parent';
+            const phone = data.phone || 'No Phone';
+            const grade = data.grade || data.class || 'N/A';
+            const msg = data.notes || data.message || 'No notes';
+
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><b>${data.childName || 'Child'}</b><br><small style="color:var(--text-dim)">Parent: ${data.parentName || 'Parent'}</small></td>
-                <td><a href="tel:${data.phone}" style="color:var(--primary); text-decoration:none;">📞 ${data.phone}</a></td>
-                <td><span class="status-pill-ui paid">${data.grade}</span></td>
-                <td><small style="color:var(--text-muted);">${data.message || 'No notes'}</small></td>
+                <td><b>${child}</b><br><small style="color:var(--text-dim)">Parent: ${parent}</small></td>
+                <td><a href="tel:${phone}" style="color:var(--primary); text-decoration:none;">📞 ${phone}</a></td>
+                <td><span class="status-pill-ui paid" style="font-size:0.7rem; padding:3px 8px;">${grade}</span></td>
+                <td><small style="color:var(--text-muted);">${msg}</small></td>
                 <td>
-                    <button class="btn-repair" style="border-color:var(--accent); color:var(--accent);" onclick="enrollEnquiryAsStudent('${doc.id}', '${encodeURIComponent(JSON.stringify(data))}')">Enroll</button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="status-pill-ui paid" style="padding:4px 12px; font-size:0.75rem;" onclick="enrollEnquiryAsStudent('${doc.id}', '${encodeURIComponent(JSON.stringify(data))}')">Enroll</button>
+                        <button class="status-pill-ui pending" style="padding:4px 12px; font-size:0.75rem;" onclick="deleteAdmissionLead('${doc.id}', '${child.replace(/'/g, "\\'")}')"> Delete</button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
         });
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444;">Failed to load: ${err.message}</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:24px; font-weight:600;">✨ There are no enquiries.</td></tr>';
+    }
+}
+// Delete Admission Enquiry
+async function deleteAdmissionLead(docId, childName) {
+    if (!confirm(`Are you sure you want to delete the enquiry for "${childName}"?`)) return;
+
+    try {
+        // Attempt deletion in both potential collection names
+        await db.collection("admissionEnquiries").doc(docId).delete().catch(() => {});
+        await db.collection("admissions").doc(docId).delete().catch(() => {});
+        alert(`✓ Enquiry for "${childName}" removed successfully.`);
+        loadAdmissionEnquiries();
+    } catch (err) {
+        alert("Error deleting enquiry: " + err.message);
     }
 }
 
 async function enrollEnquiryAsStudent(enquiryId, encodedData) {
     const data = JSON.parse(decodeURIComponent(encodedData));
-    const feeStr = prompt(`Set Monthly Fee for enrolling ${data.childName} (${data.grade}):`, "1500");
+    const child = data.childName || data.name || 'Student';
+    const grade = data.grade || data.class || 'Nursery';
+    
+    const feeStr = prompt(`Set Monthly Fee for enrolling ${child} (${grade}):`, "1500");
     if (feeStr === null) return;
     const fee = Number(feeStr) || 0;
 
     const randomSuffix = Math.floor(100 + Math.random() * 900);
     const generatedId = `LG2026-${randomSuffix}`;
-    const defaultPassword = data.phone ? data.phone.slice(-10) : "123456";
+    const defaultPassword = data.phone ? String(data.phone).slice(-10) : "123456";
 
     try {
         await db.collection("students").add({
             studentId: generatedId,
             password: defaultPassword,
-            name: data.childName.toUpperCase(),
+            name: child.toUpperCase(),
             phone: data.phone || "0000000000",
-            class: data.grade,
+            class: grade,
             monthlyFee: fee,
             amount: fee,
             totalPaid: 0,
@@ -588,8 +747,11 @@ async function enrollEnquiryAsStudent(enquiryId, encodedData) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        await db.collection("admissionEnquiries").doc(enquiryId).delete();
-        alert(`🎉 ${data.childName} enrolled!\nStudent ID: ${generatedId}\nPassword: ${defaultPassword}`);
+        // Delete from enquiries collection after successful enrollment
+        await db.collection("admissionEnquiries").doc(enquiryId).delete().catch(() => {});
+        await db.collection("admissions").doc(enquiryId).delete().catch(() => {});
+
+        alert(`🎉 ${child} enrolled!\nStudent ID: ${generatedId}\nPassword: ${defaultPassword}`);
         loadAdmissionEnquiries();
         loadAllData();
     } catch (err) {
@@ -747,5 +909,87 @@ Outstanding Balance: Rs. ${s.amount}
 Status: ${isCleared ? 'PAID' : 'PENDING'}`;
 
         window.location.href = "sms:" + formattedPhone + "?body=" + encodeURIComponent(smsMsg);
+    }
+}
+
+
+
+
+
+
+// --- ANNUAL ACADEMIC ROLLOVER & PROGRESSION ---
+async function executeAnnualSessionRollover() {
+    const confirmRollover = confirm(
+        "⚠️ ANNUAL ACADEMIC SESSION ROLLOVER\n\n" +
+        "This will batch-advance all active students to the next academic grade:\n" +
+        "• Playgroup → Nursery\n" +
+        "• Nursery → LKG\n" +
+        "• LKG → UKG\n" +
+        "• UKG → Class 1\n" +
+        "• Class 1 → Class 2\n" +
+        "• Class 2 → Class 3\n" +
+        "• Class 3 → Class 4\n" +
+        "• Class 4 → Graduated (Alumni)\n\n" +
+        "Are you sure you want to advance all students to the next academic year?"
+    );
+
+    if (!confirmRollover) return;
+
+    const classProgression = {
+        "Playgroup": "Nursery",
+        "Nursery": "LKG",
+        "LKG": "UKG",
+        "UKG": "Class 1",
+        "Class 1": "Class 2",
+        "Class 2": "Class 3",
+        "Class 3": "Class 4",
+        "Class 4": "Graduated"
+    };
+
+    try {
+        const snap = await db.collection("students").get();
+        if (snap.empty) {
+            alert("No student records found to advance.");
+            return;
+        }
+
+        const batch = db.batch();
+        let promotedCount = 0;
+        let graduatedCount = 0;
+
+        snap.forEach(doc => {
+            const data = doc.data() || {};
+            const currentClass = data.class;
+
+            if (classProgression[currentClass]) {
+                const nextClass = classProgression[currentClass];
+                
+                batch.update(doc.ref, {
+                    class: nextClass,
+                    previousClass: currentClass,
+                    promotedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                if (nextClass === "Graduated") {
+                    graduatedCount++;
+                } else {
+                    promotedCount++;
+                }
+            }
+        });
+
+        await batch.commit();
+
+        alert(
+            `🎉 Academic Progression Completed Successfully!\n\n` +
+            `• Students Advanced: ${promotedCount}\n` +
+            `• Students Graduated (Class 4): ${graduatedCount}`
+        );
+
+        await loadAllData();
+        showPage('admin');
+    } catch (err) {
+        console.error("Session rollover error:", err);
+        alert("Error during session transition: " + err.message);
     }
 }
