@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life at Little Garden | Activities & Campus Gallery</title>
+    <meta name="description" content="Explore life at Little Garden School - creative crafts, hands-on science experiments, ICT robotics, sports, and outdoor fun.">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        /* GALLERY-SPECIFIC STYLING */
+        .filter-tags {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 20px 0 35px 0;
+        }
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 8px 18px;
+            border-radius: var(--radius-full);
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .gallery-card {
+            padding: 0;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+        .gallery-img-wrapper {
+            width: 100%;
+            height: 220px;
+            overflow: hidden;
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+        }
+        .gallery-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        .gallery-card:hover .gallery-img-wrapper img {
+            transform: scale(1.06);
+        }
+        .gallery-tag-pill {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(6, 9, 19, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .gallery-info {
+            padding: 16px;
+        }
+        .gallery-info h4 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        .gallery-info p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        /* LIGHTBOX PREVIEW MODAL */
+        #lightboxModal .modal-content {
+            max-width: 780px;
+            padding: 12px;
+            background: rgba(10, 15, 30, 0.95);
+        }
+        #lightboxImg {
+            width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            border-radius: var(--radius-md);
+        }
+    </style>
+</head>
+<body>
+    <div class="glow-orb" id="orb-1"></div>
+    <div class="glow-orb" id="orb-2"></div>
+
+    <!-- NAVIGATION -->
+    <nav class="glass-nav">
+        <div class="nav-content">
+            <a href="index.html" class="brand">Little<span>Garden</span></a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="index.html#academics" class="nav-link">Academics</a>
+                <a href="index.html#facilities" class="nav-link">ICT & Labs</a>
+                <a href="index.html#admissions" class="nav-link">Admissions</a>
+                <a href="portal.html" class="nav-link" style="color: var(--accent);">👨‍👩‍👧 Parent Portal</a>
+            </div>
+            <a href="index.html#admissions" class="btn-action btn-primary" style="padding: 8px 18px; font-size: 0.82rem; text-decoration: none;">
+                Apply Now
+            </a>
+        </div>
+    </nav>
+
+    <!-- HEADER SECTION -->
+    <header class="hero-section" style="padding: 60px 20px 20px 20px;">
+        <div class="hero-container">
+            <span class="badge-pill">📸 Campus Life & Co-Curriculars</span>
+            <h1>Moments of <span>Joy, Learning & Discovery</span></h1>
+            <p class="hero-subtext">
+                Explore how our students experiment, create art, learn computational thinking, and develop lifelong friendships every single day.
+            </p>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- FILTER BUTTONS -->
+        <div class="filter-tags">
+            <button class="filter-btn active" onclick="filterGallery('all')">All Activities</button>
+            <button class="filter-btn" onclick="filterGallery('crafts')">🎨 Art & Crafts</button>
+            <button class="filter-btn" onclick="filterGallery('stem')">💻 ICT & STEM Lab</button>
+            <button class="filter-btn" onclick="filterGallery('sports')">⚽ Sports & Play</button>
+            <button class="filter-btn" onclick="filterGallery('celebrations')">🎉 Events & Functions</button>
+        </div>
+
+        <!-- GALLERY TILES -->
+        <div class="gallery-grid" id="galleryContainer">
+            
+            <!-- Item 1: Art & Craft -->
+            <div class="glass-card gallery-card" data-category="crafts" onclick="openLightbox('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1200&auto=format&fit=crop', 'Paper Origami & Clay Modeling Workshop')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">🎨 Art & Craft</span>
+                    <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=600&auto=format&fit=crop" alt="Students making paper origami" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Clay & Paper Origami Workshop</h4>
+                    <p>Fostering fine motor skills and spatial imagination through hands-on sculpting and folding.</p>
+                </div>
+            </div>
+
+            <!-- Item 2: STEM & ICT -->
+            <div class="glass-card gallery-card" data-category="stem" onclick="openLightbox('https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop', 'Interactive Computer Lab & Coding Hours')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">💻 ICT Lab</span>
+                    <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=600&auto=format&fit=crop" alt="ICT Computer Lab session" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Computer Literacy & Block Logic</h4>
+                    <p>Early grade learners navigating interactive digital puzzles and foundational mouse & keyboard skills.</p>
+                </div>
+            </div>
+
+            <!-- Item 3: Sports & Recreation -->
+            <div class="glass-card gallery-card" data-category="sports" onclick="openLightbox('https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1200&auto=format&fit=crop', 'Annual Sports Sprint & Coordination Games')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">⚽ Sports & Fitness</span>
+                    <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=600&auto=format&fit=crop" alt="Kids playing outdoor sports" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Obstacle Run & Team Relays</h4>
+                    <p>Building stamina, agility, and sportsmanship on the school's safe turf sports field.</p>
+                </div>
+            </div>
+
+            <!-- Item 4: Celebrations & Drama -->
+            <div class="glass-card gallery-card" data-category="celebrations" onclick="openLightbox('https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=1200&auto=format&fit=crop', 'Annual Day Cultural Fest & Stage Drama')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">🎉 Cultural Fest</span>
+                    <img src="https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=600&auto=format&fit=crop" alt="Students in traditional attire for annual function" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Annual Fest Stage Performance</h4>
+                    <p>Showcasing confidence, musical rhythm, and theatrical storytelling in costume.</p>
+                </div>
+            </div>
+
+            <!-- Item 5: Science Discovery -->
+            <div class="glass-card gallery-card" data-category="stem" onclick="openLightbox('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=1200&auto=format&fit=crop', 'Junior Science Day Experiment Hub')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">🔬 Science Hub</span>
+                    <img src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=600&auto=format&fit=crop" alt="Children working on a science project" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Little Scientists Discovery Hub</h4>
+                    <p>Exploring plants, buoyancy, and magnetic pull through safe, guided practical experiments.</p>
+                </div>
+            </div>
+
+            <!-- Item 6: Finger Painting & Arts -->
+            <div class="glass-card gallery-card" data-category="crafts" onclick="openLightbox('https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?q=80&w=1200&auto=format&fit=crop', 'Pre-Primary Finger Painting & Color Theory')">
+                <div class="gallery-img-wrapper">
+                    <span class="gallery-tag-pill">🎨 Art & Craft</span>
+                    <img src="https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?q=80&w=600&auto=format&fit=crop" alt="Finger painting art" loading="lazy">
+                </div>
+                <div class="gallery-info">
+                    <h4>Vibrant Finger Painting Day</h4>
+                    <p>Sensory exploration with non-toxic colors helping kindergarteners express feelings creatively.</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FULLSCREEN LIGHTBOX MODAL -->
+    <div id="lightboxModal" class="modal-overlay" style="display:none;" onclick="closeLightbox()">
+        <div class="glass-card modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header" style="border: none; margin-bottom: 8px;">
+                <h4 id="lightboxCaption" style="margin: 0; color: #ffffff;">Image View</h4>
+                <button class="close-btn" onclick="closeLightbox()">&times;</button>
+            </div>
+            <img id="lightboxImg" src="" alt="Full preview">
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div>
+                <div class="brand">Little<span>Garden</span></div>
+                <p style="font-size:0.8rem; color:var(--text-dim); margin-top:8px;">Nurturing tomorrow's leaders through values, curiosity, and technology.</p>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-dim); text-align:right;">
+                <p>&copy; 2026 Little Garden School. All rights reserved.</p>
+                <p><a href="portal.html" style="color:var(--accent); text-decoration:none;">Parent Fee Portal</a> | <a href="index.html" style="color:var(--text-dim); text-decoration:none;">Public Website</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- INTERACTIVE SCRIPTS -->
+    <script>
+        // Category filtering
+        function filterGallery(category) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const items = document.querySelectorAll('.gallery-card');
+            items.forEach(item => {
+                const itemCat = item.getAttribute('data-category');
+                if (category === 'all' || itemCat === category) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Lightbox Zoom
+        function openLightbox(url, title) {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightboxCaption').innerText = title;
+            document.getElementById('lightboxModal').style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightboxModal').style.display = 'none';
+            document.getElementById('lightboxImg').src = '';
+        }
+
+        // Auto-Hide Navbar On Scroll
+        let lastScrollY = window.scrollY;
+        const nav = document.querySelector('.glass-nav');
+        window.addEventListener('scroll', () => {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastScrollY && currentScrollY > 60) {
+                nav.classList.add('nav-hidden');
+            } else {
+                nav.classList.remove('nav-hidden');
+            }
+            lastScrollY = currentScrollY;
+        }, { passive: true });
+    </script>
+</body>
+</html>
