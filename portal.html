@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Portal | Little Garden School</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Razorpay Checkout SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <div class="glow-orb" id="orb-1"></div>
+    <div class="glow-orb" id="orb-2"></div>
+
+    <!-- NAVIGATION -->
+    <nav class="glass-nav">
+        <div class="nav-content">
+            <a href="index.html" class="brand">Little<span>Garden</span></a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">← Back to Main Site</a>
+                <button id="portalLogoutBtn" class="nav-link" onclick="handleParentLogout()" style="display:none; color: #ef4444; background: transparent; border: none; cursor: pointer;">🚪 Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="app-container" style="max-width: 900px; margin-top: 30px;">
+        
+        <!-- 1. PARENT LOGIN SCREEN (ID & PASSWORD) -->
+        <section id="portal-login-view" class="glass-card" style="max-width: 440px; margin: 40px auto; text-align: center;">
+            <div class="feature-icon" style="font-size: 2.5rem;">👨‍👩‍👧</div>
+            <h2 style="font-size: 1.6rem; margin-bottom: 8px;">Parent & Student Portal</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px;">Enter your assigned Student ID and Password to view dues and pay fees.</p>
+
+            <form id="parentLoginForm" onsubmit="handleParentLogin(event)">
+                <div class="input-stack">
+                    <input type="text" id="parentLoginId" placeholder="Student ID (e.g. LG2026-101)" style="text-transform: uppercase;" required>
+                    <input type="password" id="parentLoginPass" placeholder="Password (e.g. Registered Phone Number)" required>
+                    <button type="submit" class="btn-action btn-primary" style="width: 100%; margin-top: 8px;">Log In to Portal</button>
+                </div>
+            </form>
+            <p id="portalLoginError" style="color: #ef4444; font-size: 0.8rem; margin-top: 14px; display: none;"></p>
+        </section>
+
+        <!-- 2. PARENT DASHBOARD (HIDDEN UNTIL LOGIN) -->
+        <section id="portal-dashboard-view" style="display: none; flex-direction: column; gap: 24px;">
+            
+            <!-- STUDENT PROFILE HEADER -->
+            <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <span class="badge-pill" style="margin-bottom: 8px;">Student Profile</span>
+                    <h2 id="p-student-name" style="font-size: 1.8rem; margin: 0;">-</h2>
+                    <p id="p-student-meta" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">ID: - | Class: - | Contact: -</p>
+                </div>
+                <div id="p-status-pill" class="badge-pill" style="font-size: 0.9rem; padding: 8px 18px;">
+                    Loading Status...
+                </div>
+            </div>
+
+            <!-- FEE SUMMARY METRICS -->
+            <div class="stats-grid">
+                <div class="glass-card stat-item">
+                    <small>Monthly Tuition Fee</small>
+                    <h2 id="p-monthly-fee" style="color: var(--text-main);">₹0</h2>
+                </div>
+                <div class="glass-card stat-item">
+                    <small>Total Fee Settled</small>
+                    <h2 id="p-total-paid" style="color: var(--accent);">₹0</h2>
+                </div>
+                <div class="glass-card stat-item">
+                    <small>Current Outstanding Due</small>
+                    <h2 id="p-due-amt" style="color: #ef4444;">₹0</h2>
+                </div>
+            </div>
+
+            <!-- ONLINE PAYMENT GATEWAY CARD -->
+            <div class="glass-card" style="background: radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);">
+                <h3 style="margin-bottom: 8px;">💳 Settle Fee Online</h3>
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 20px;">Instant digital payment via UPI, Google Pay, PhonePe, Paytm, Debit/Credit Card or NetBanking.</p>
+                
+                <div style="display: flex; gap: 12px; max-width: 480px; flex-wrap: wrap;">
+                    <input type="number" id="payAmountInput" placeholder="Amount to Pay (₹)" min="1" style="flex: 1; min-width: 180px;">
+                    <button class="btn-action btn-primary" onclick="initiateFeePayment()" style="flex: 1; min-width: 180px;">Pay via Razorpay</button>
+                </div>
+            </div>
+
+            <!-- PAYMENT HISTORY LEDGER -->
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <h3 style="margin: 0;">📜 Fee Ledger & Statements</h3>
+                        <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 4px;">Detailed transaction history of all settled dues.</p>
+                    </div>
+                    <button class="btn-action btn-outline" onclick="openCompleteReceipt()" style="padding: 8px 16px; font-size: 0.82rem;">📄 View Full Statement</button>
+                </div>
+
+                <div id="parentHistoryContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                    <p style="color: var(--text-dim); font-size: 0.85rem;">Fetching records...</p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- OFFICIAL RECEIPT MODAL -->
+    <div id="receiptModal" class="modal-overlay" style="display:none;">
+        <div class="glass-card modal-content" style="max-width:440px;">
+            <div class="modal-header">
+                <h3 style="margin:0;">🧾 Official Fee Statement</h3>
+                <button class="close-btn" onclick="document.getElementById('receiptModal').style.display='none'">&times;</button>
+            </div>
+            
+            <div id="receipt-preview-box" style="background: rgba(0,0,0,0.5); border: 1px dashed var(--glass-border); padding: 15px; border-radius: 12px; margin: 15px 0; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; color: #e2e8f0;"></div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn-action btn-primary" style="flex:2;" onclick="copyReceiptText()">📋 Copy Statement</button>
+                <button class="btn-action btn-outline" style="flex:1;" onclick="document.getElementById('receiptModal').style.display='none'">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIREBASE COMPATIBILITY SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="portal.js"></script>
+</body>
+</html>
