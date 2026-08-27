@@ -6,21 +6,24 @@
     <title>Admin ERP & Finance Portal | Little Garden School</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="images/logo 1.png">
 </head>
 <body>
     <div class="glow-orb" id="orb-1"></div>
     <div class="glow-orb" id="orb-2"></div>
 
-    <!-- 1. AUTHENTICATION LOGIN OVERLAY (SHOWN IF NOT LOGGED IN) -->
+    <!-- 1. AUTHENTICATION LOGIN OVERLAY -->
     <div id="loginOverlay" class="modal-overlay" style="display: none;">
         <div class="glass-card modal-content" style="max-width: 420px; text-align: center;">
-            <div class="feature-icon" style="font-size: 2.6rem;">🔐</div>
+            <div style="margin-bottom: 12px;">
+                <img src="images/logo 1.png" alt="Logo" class="hero-emblem" style="width: 70px; height: 70px; margin-bottom: 8px;" onerror="this.src='images/logo 1.jpg'">
+            </div>
             <h2 style="font-size: 1.6rem; margin-bottom: 8px;">Admin ERP Login</h2>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 22px;">Enter your administrative credentials to manage accounts and financials.</p>
             
             <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
                 <div class="input-stack">
-                    <input type="email" id="loginEmail" placeholder="Admin Email (e.g. admin@littlegarden.com)" required>
+                    <input type="email" id="loginEmail" placeholder="Admin Email" required>
                     <input type="password" id="loginPassword" placeholder="Password" required>
                     <button type="submit" class="btn-action btn-primary" style="width: 100%; margin-top: 8px;">Sign In to Dashboard</button>
                 </div>
@@ -32,7 +35,10 @@
     <!-- 2. NAVIGATION BAR -->
     <nav class="glass-nav">
         <div class="nav-content">
-            <a href="index.html" class="brand">Little<span>Garden</span></a>
+            <a href="index.html" class="brand">
+                <img src="images/logo 1.png" alt="Logo" class="nav-logo" onerror="this.src='images/logo 1.jpg'">
+                Little<span>Garden</span>
+            </a>
             <div class="nav-links">
                 <button class="nav-link active" data-page="dashboard" onclick="showPage('dashboard')">📊 Dashboard</button>
                 <button class="nav-link" data-page="add" onclick="showPage('add')">+ Add Student</button>
@@ -46,10 +52,8 @@
     <!-- 3. MAIN APPLICATION CONTAINER -->
     <main class="app-container" style="max-width: 1200px; margin: 30px auto; width: 100%;">
         
-        <!-- ==================== VIEW 1: DASHBOARD ==================== -->
+        <!-- DASHBOARD VIEW -->
         <section id="dashboard-view" class="page-view" style="display: block;">
-            
-            <!-- STATS COUNTERS -->
             <div class="stats-grid" style="margin-bottom: 24px;">
                 <div class="glass-card stat-item">
                     <small>Total Enrolled Students</small>
@@ -61,7 +65,6 @@
                 </div>
             </div>
 
-            <!-- ACTION CONTROLS & BATCH BILLING -->
             <div class="glass-card" style="margin-bottom: 24px;">
                 <div class="actions-bar">
                     <div>
@@ -89,6 +92,7 @@
                         <option value="Class 2">Class 2</option>
                         <option value="Class 3">Class 3</option>
                         <option value="Class 4">Class 4</option>
+                        <option value="Class 5">Class 5</option>
                     </select>
                 </div>
             </div>
@@ -114,7 +118,7 @@
             </div>
         </section>
 
-        <!-- ==================== VIEW 2: ADD STUDENT (WITH TRANSPORT) ==================== -->
+        <!-- ADD STUDENT VIEW -->
         <section id="add-view" class="page-view" style="display: none;">
             <div class="glass-card" style="max-width: 540px; margin: 0 auto;">
                 <h2 style="font-size: 1.5rem; margin-bottom: 6px;">Register New Student</h2>
@@ -128,6 +132,9 @@
                         <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase;">Guardian 10-Digit Mobile Phone:</label>
                         <input type="tel" id="parentPhone" placeholder="e.g. 9876543210" pattern="[0-9]{10}" required>
 
+                        <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase;">Guardian Google Email (For Google Sign-In):</label>
+                        <input type="email" id="parentEmail" placeholder="e.g. parent@gmail.com">
+
                         <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase;">Assigned Class:</label>
                         <select id="studentClass" required>
                             <option value="">-- Select Class --</option>
@@ -139,12 +146,12 @@
                             <option value="Class 2">Class 2</option>
                             <option value="Class 3">Class 3</option>
                             <option value="Class 4">Class 4</option>
+                            <option value="Class 5">Class 5</option>
                         </select>
 
                         <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase;">Base Monthly Tuition Fee (₹):</label>
                         <input type="number" id="feeAmount" placeholder="e.g. 1500" min="0" required>
 
-                        <!-- SCHOOL TRANSPORT OPT-IN & FEE BOX -->
                         <div style="background: rgba(99, 102, 241, 0.08); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-md); padding: 14px; margin-top: 6px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer; color: #a5b4fc;">
                                 <input type="checkbox" id="transportOptCheck" onchange="document.getElementById('transportFeeInputBox').style.display = this.checked ? 'block' : 'none'" style="width: auto; cursor: pointer;">
@@ -162,10 +169,39 @@
             </div>
         </section>
 
-        <!-- ==================== VIEW 3: ADMIN MANAGEMENT & ENQUIRIES ==================== -->
+        <!-- ADMIN MANAGEMENT PANEL -->
         <section id="admin-view" class="page-view" style="display: none; flex-direction: column; gap: 24px;">
-            
-            <!-- STUDENT RECORD SELECTOR & EDITOR -->
+            <!-- UPI VERIFICATIONS -->
+            <div class="glass-card" style="border: 1px solid rgba(234, 179, 8, 0.4); background: radial-gradient(circle at 100% 0%, rgba(234, 179, 8, 0.08) 0%, rgba(15, 23, 42, 0.75) 100%);">
+                <div class="actions-bar" style="margin-bottom: 16px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.25rem; color: #facc15;">💳 Pending Online UPI Verifications</h3>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Verify incoming UTR reference numbers against your bank account statement before approving.</p>
+                    </div>
+                    <button class="btn-action btn-outline" style="padding: 6px 14px; font-size: 0.8rem; border-color: #facc15; color: #facc15;" onclick="loadPendingPayments()">🔄 Refresh Approvals</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Details</th>
+                                <th>Claimed Amount</th>
+                                <th>Bank UTR Ref</th>
+                                <th>Submitted Time</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingPaymentsTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 18px;">Checking pending payments...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- STUDENT EDITOR -->
             <div class="glass-card">
                 <div style="margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 1.25rem;">⚙️ Admin Account Management Panel</h3>
@@ -179,7 +215,6 @@
                     </select>
                 </div>
 
-                <!-- STUDENT EDITOR FORM (EXPANDS ON SELECTION) -->
                 <div id="adminEditorCard" style="display: none; margin-top: 24px; border-top: 1px solid var(--glass-border); padding-top: 20px;">
                     <h4 id="admin-editor-title" style="font-size: 1.15rem; margin-bottom: 14px; color: var(--text-main);">Editing Profile</h4>
                     
@@ -195,6 +230,14 @@
                     </div>
 
                     <div class="modal-grid" style="margin-bottom: 16px;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">Student Full Name:</label>
+                            <input type="text" id="admin-student-name" style="margin-top: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">Guardian Google Email:</label>
+                            <input type="email" id="admin-parent-email" placeholder="e.g. parent@gmail.com" style="margin-top: 4px;">
+                        </div>
                         <div>
                             <label style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">Guardian Phone:</label>
                             <input type="text" id="admin-phone" style="margin-top: 4px;">
@@ -218,8 +261,8 @@
                     </div>
 
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn-action btn-primary" onclick="saveAdminStudentUpdates()">💾 Save Changes</button>
-                        <button class="btn-action btn-outline" style="border-color: #ef4444; color: #ef4444;" onclick="deleteStudentAdmin()"> Delete Student Account</button>
+                        <button type="button" class="btn-action btn-primary" onclick="saveAdminStudentUpdates()">💾 Save Changes</button>
+                        <button type="button" class="btn-action btn-outline" style="border-color: #ef4444; color: #ef4444;" onclick="deleteStudentAdmin()">Delete Student Account</button>
                     </div>
 
                     <div style="margin-top: 24px;">
@@ -229,19 +272,19 @@
                 </div>
             </div>
 
-            <!-- 🎓 ANNUAL SESSION ROLLOVER (INSIDE ADMIN PANEL ONLY) -->
-            <div class="glass-card" style="margin-top: 24px; border: 1px solid rgba(168, 85, 247, 0.35); background: radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%);">
+            <!-- ACADEMIC ROLLOVER -->
+            <div class="glass-card" style="border: 1px solid rgba(168, 85, 247, 0.35); background: radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%);">
                 <div class="actions-bar">
                     <div>
                         <h3 style="margin: 0; font-size: 1.25rem; color: #c084fc;">🎓 Academic Year Rollover & Session Transition</h3>
                         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Advance all enrolled students into the next academic standard at the end of the school year.</p>
                     </div>
-                    <button class="btn-action btn-outline" style="border-color: #a855f7; color: #c084fc; background: rgba(168, 85, 247, 0.15); white-space: nowrap;" onclick="executeAnnualSessionRollover()">🔄 Advance All Students to Next Academic Year</button>
+                    <button class="btn-action btn-outline" style="border-color: #a855f7; color: #c084fc; background: rgba(168, 85, 247, 0.15);" onclick="executeAnnualSessionRollover()">🔄 Advance All Students to Next Academic Year</button>
                 </div>
             </div>
 
-            <!-- PROSPECTIVE ADMISSION LEADS -->
-            <div class="glass-card" style="margin-top: 24px;">
+            <!-- ADMISSION LEADS -->
+            <div class="glass-card">
                 <div class="actions-bar" style="margin-bottom: 16px;">
                     <div>
                         <h3 style="margin: 0; font-size: 1.25rem;">📬 New Admission Enquiries (From Website)</h3>
@@ -269,12 +312,10 @@
                     </table>
                 </div>
             </div>
-
         </section>
-
     </main>
 
-    <!-- ==================== MODAL 1: STUDENT PROFILE & SETTLEMENT ==================== -->
+    <!-- MODAL 1: STUDENT PROFILE & SETTLEMENT -->
     <div id="studentModal" class="modal-overlay" style="display: none;">
         <div class="glass-card modal-content" style="max-width: 580px;">
             <div class="modal-header">
@@ -285,7 +326,6 @@
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
 
-            <!-- RECORD NEW PAYMENT -->
             <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 10px; color: #34d399;">💵 Record Payment Settlement</h4>
                 <div class="modal-grid quick-pay-flex">
@@ -303,7 +343,6 @@
                 <button class="btn-action btn-primary" style="width: 100%; margin-top: 10px; font-size: 0.85rem;" onclick="recordNewPayment()">✓ Submit Payment & Update Dues</button>
             </div>
 
-            <!-- FEE ADJUSTMENT (ADD FEE / DISCOUNT) -->
             <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 10px; color: #a5b4fc;">⚖️ Fee Adjustment / Discount</h4>
                 <div class="modal-grid">
@@ -313,25 +352,23 @@
                     </select>
                     <input type="number" id="custom-entry-amt" placeholder="Adjustment Amount (₹)" min="1">
                     <div class="m-box" style="grid-column: span 2;">
-                        <input type="text" id="custom-entry-note" placeholder="Reason (e.g. Late fine, Annual sports kit, Sibling discount)">
+                        <input type="text" id="custom-entry-note" placeholder="Reason (e.g. Late fine, Annual kit)">
                     </div>
                 </div>
                 <button class="btn-action btn-outline" style="width: 100%; margin-top: 10px; font-size: 0.85rem;" onclick="addCustomStudentEntry()">Apply Fee Adjustment</button>
             </div>
 
-            <!-- INVOICE DISPATCH BUTTONS -->
             <div style="display: flex; gap: 10px; margin-bottom: 16px;">
                 <button class="btn-action btn-outline" style="flex: 1; border-color: #22c55e; color: #22c55e; font-size: 0.82rem;" onclick="sendInvoice('whatsapp')">📲 WhatsApp Invoice</button>
                 <button class="btn-action btn-outline" style="flex: 1; border-color: #38bdf8; color: #38bdf8; font-size: 0.82rem;" onclick="sendInvoice('sms')">💬 SMS Summary</button>
             </div>
 
-            <!-- TRANSACTION HISTORY LEDGER -->
             <h4 style="font-size: 0.9rem; margin-bottom: 8px; color: var(--text-muted);">Historical Logs & Statements:</h4>
             <div id="history-timeline" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;"></div>
         </div>
     </div>
 
-    <!-- ==================== MODAL 2: BATCH BILLING (TUITION & TRANSPORT) ==================== -->
+    <!-- MODAL 2: BATCH BILLING -->
     <div id="billingModal" class="modal-overlay" style="display: none;">
         <div class="glass-card modal-content" style="max-width: 480px;">
             <div class="modal-header">
@@ -351,13 +388,13 @@
                     <option value="Class 2">Class 2</option>
                     <option value="Class 3">Class 3</option>
                     <option value="Class 4">Class 4</option>
+                    <option value="Class 5">Class 5</option>
                 </select>
 
                 <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">Custom Flat Tuition Fee (Optional):</label>
-                <input type="number" id="billingCustomFee" placeholder="Leave blank to use each student's regular tuition fee" min="0">
+                <input type="number" id="billingCustomFee" placeholder="Leave blank to use student regular fee" min="0">
             </div>
 
-            <!-- ACTION BUTTONS: TUITION + TRANSPORT -->
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <button class="btn-action btn-primary" onclick="executeMonthlyBilling()">⚡ Apply Monthly Tuition Fee</button>
                 <button class="btn-action btn-outline" style="border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.08);" onclick="executeMonthlyTransportBilling()">🚌 Add Monthly Transport Fee to Students</button>
@@ -366,11 +403,14 @@
         </div>
     </div>
 
-    <!-- ==================== MODAL 3: OFFICIAL STATEMENT RECEIPT ==================== -->
+    <!-- MODAL 3: OFFICIAL STATEMENT RECEIPT -->
     <div id="receiptModal" class="modal-overlay" style="display: none;">
         <div class="glass-card modal-content" style="max-width: 480px; max-height: 88vh; display: flex; flex-direction: column;">
             <div class="modal-header">
-                <h3 style="margin: 0;">🧾 Student Official Statement</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="images/logo 1.png" alt="Logo" class="nav-logo" style="width: 32px; height: 32px;" onerror="this.src='images/logo 1.jpg'">
+                    <h3 style="margin: 0;">🧾 Student Official Statement</h3>
+                </div>
                 <button class="close-btn" onclick="closeReceiptModal()">&times;</button>
             </div>
             
@@ -383,13 +423,11 @@
         </div>
     </div>
 
-    <!-- FIREBASE COMPATIBILITY SCRIPTS -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="script.js"></script>
     <script>
-        // Auto-Hide Navbar On Scroll
         let lastScrollY = window.scrollY;
         const nav = document.querySelector('.glass-nav');
         window.addEventListener('scroll', () => {
