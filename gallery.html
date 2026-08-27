@@ -6,103 +6,412 @@
     <title>Life at Little Garden | Activities & Campus Gallery</title>
     <meta name="description" content="Explore life at Little Garden School - creative crafts, hands-on science experiments, ICT robotics, sports, and outdoor fun.">
     
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="images/logo 1.png">
     
     <style>
-        /* GALLERY-SPECIFIC STYLING */
-        .filter-tags {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 20px 0 35px 0;
+        /* =========================================================
+           FROSTED PINK SCHOOL BACKGROUND OVERLAY
+           ========================================================= */
+        body {
+            background-color: #12070c !important;
+            background-image: 
+                linear-gradient(
+                    rgba(25, 10, 18, 0.435), 
+                    rgba(15, 6, 11, 0.85)
+                ),
+                radial-gradient(circle at 50% 15%, rgba(244, 63, 94, 0.22) 0%, transparent 60%),
+                url('images/bgimg.jpg') !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-size: cover !important;
+            background-attachment: fixed !important;
         }
-        .filter-btn {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--glass-border);
+
+        @media (max-width: 768px) {
+            body::before {
+                background-image: 
+                    linear-gradient(
+                        to bottom,
+                        rgba(30, 10, 20, 0.717) 0%,
+                        rgba(20, 7, 14, 0.604) 50%,
+                        rgba(12, 4, 8, 0.729) 100%
+                    ),
+                    radial-gradient(circle at 50% 10%, rgba(244, 63, 94, 0.3) 0%, transparent 50%),
+                    url('images/mobile.jpg') !important;
+                background-position: center 15% !important;
+                background-repeat: no-repeat !important;
+                background-size: cover !important;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+        }
+
+        /* Ambient Pink Glow Orbs */
+        #orb-1 {
+            background: radial-gradient(circle, rgba(244, 63, 94, 0.28) 0%, transparent 70%) !important;
+        }
+        #orb-2 {
+            background: radial-gradient(circle, rgba(251, 113, 133, 0.24) 0%, transparent 70%) !important;
+        }
+
+        /* =========================================================
+           LOVE THEME NAVBAR & HEADER
+           ========================================================= */
+        :root {
+            --love-primary: #f43f5e;
+            --love-secondary: #fb7185;
+            --love-blush: #fda4af;
+            --love-glow: rgba(244, 63, 94, 0.35);
+            --love-grad: linear-gradient(135deg, #f43f5e 0%, #fb7185 50%, #e11d48 100%);
+            --frosted-pink-border: rgba(244, 63, 94, 0.22);
+        }
+
+        /* Navbar */
+        .glass-nav.love-navbar {
+            background: rgba(24, 8, 16, 0.82) !important;
+            backdrop-filter: blur(24px) !important;
+            -webkit-backdrop-filter: blur(24px) !important;
+            border-bottom: 1px solid var(--frosted-pink-border) !important;
+        }
+
+        .brand.love-brand span {
+            background: var(--love-grad) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+        }
+
+        .love-nav-link:hover {
+            color: var(--love-blush) !important;
+            background: rgba(244, 63, 94, 0.12) !important;
+            border-color: rgba(244, 63, 94, 0.3) !important;
+        }
+
+        .btn-action.btn-love {
+            background: var(--love-grad) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 20px var(--love-glow) !important;
+            border: none !important;
+        }
+
+        .btn-action.btn-love:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.12);
+        }
+
+        /* Header / Hero */
+        .love-hero-section {
+            padding: 75px 20px 25px 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .love-hero-section .love-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.4);
+            color: var(--love-blush);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 6px 18px;
+            border-radius: var(--radius-full);
+            margin-bottom: 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 0 25px var(--love-glow);
+        }
+
+        .love-hero-section h1 {
+            font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+            font-size: 3.2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.15;
+            color: #ffffff;
+            margin-bottom: 14px;
+        }
+
+        .love-hero-section h1 span {
+            background: var(--love-grad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .love-hero-section .hero-subtext {
+            color: #cbd5e1;
+            font-size: 1rem;
+            max-width: 660px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* =========================================================
+           FROSTED PINK GALLERY CONTROLS & BENTO GRID
+           ========================================================= */
+        .gallery-canvas {
+            position: relative;
+            z-index: 2;
+            padding-bottom: 60px;
+        }
+
+        .gallery-toolbar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            margin: 20px 0 35px 0;
+            width: 100%;
+        }
+
+        .search-pill-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .search-pill-container input {
+            width: 100%;
+            background: rgba(24, 10, 18, 0.78);
+            border: 1px solid var(--frosted-pink-border);
+            border-radius: var(--radius-full);
+            padding: 12px 20px 12px 46px;
+            color: #ffffff;
+            font-size: 0.9rem !important;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transition: var(--transition);
+        }
+
+        .search-pill-container input:focus {
+            border-color: var(--love-secondary);
+            box-shadow: 0 0 25px var(--love-glow);
+            background: rgba(32, 12, 24, 0.92);
+        }
+
+        .search-pill-container .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.95rem;
+            color: var(--love-blush);
+            pointer-events: none;
+        }
+
+        .filter-capsule-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .filter-capsule {
+            background: rgba(24, 10, 18, 0.65);
+            border: 1px solid var(--frosted-pink-border);
             color: var(--text-muted);
             padding: 8px 18px;
             border-radius: var(--radius-full);
             font-size: 0.84rem;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: var(--transition);
-        }
-        .filter-btn:hover, .filter-btn.active {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--primary);
-            color: #ffffff;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(12px);
         }
 
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
+        .filter-capsule:hover {
+            color: var(--love-blush);
+            background: rgba(244, 63, 94, 0.12);
+            border-color: rgba(244, 63, 94, 0.4);
+            transform: translateY(-2px);
         }
-        .gallery-card {
-            padding: 0;
-            overflow: hidden;
+
+        .filter-capsule.active {
+            background: rgba(244, 63, 94, 0.25);
+            border-color: var(--love-secondary);
+            color: #ffffff;
+            box-shadow: 0 4px 18px var(--love-glow);
+            transform: translateY(-2px);
+        }
+
+        .bento-gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            width: 100%;
+        }
+
+        .bento-item {
+            background: rgba(22, 9, 16, 0.72);
+            border: 1px solid var(--frosted-pink-border);
             border-radius: var(--radius-lg);
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             cursor: pointer;
-        }
-        .gallery-img-wrapper {
-            width: 100%;
-            height: 220px;
-            overflow: hidden;
             position: relative;
-            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.35s ease, box-shadow 0.35s ease;
         }
-        .gallery-img-wrapper img {
+
+        .bento-item:hover {
+            transform: translateY(-8px);
+            border-color: rgba(244, 63, 94, 0.6);
+            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.85), 0 0 25px var(--love-glow);
+            background: rgba(30, 12, 22, 0.88);
+        }
+
+        .bento-media-box {
+            position: relative;
+            width: 100%;
+            height: 240px;
+            overflow: hidden;
+            background: #020617;
+        }
+
+        .bento-media-box img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.4s ease;
-        }
-        .gallery-card:hover .gallery-img-wrapper img {
-            transform: scale(1.06);
-        }
-        .gallery-tag-pill {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: rgba(6, 9, 19, 0.75);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--glass-border);
-            padding: 4px 10px;
-            border-radius: var(--radius-full);
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: #e2e8f0;
-        }
-        .gallery-info {
-            padding: 16px;
-        }
-        .gallery-info h4 {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 4px;
-        }
-        .gallery-info p {
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            line-height: 1.45;
+            transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* LIGHTBOX PREVIEW MODAL */
-        #lightboxModal .modal-content {
-            max-width: 780px;
-            padding: 12px;
-            background: rgba(10, 15, 30, 0.95);
+        .bento-item:hover .bento-media-box img {
+            transform: scale(1.08);
         }
-        #lightboxImg {
-            width: 100%;
-            max-height: 70vh;
-            object-fit: contain;
+
+        .floating-tag-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: rgba(18, 6, 13, 0.88);
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            color: var(--love-blush);
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 2;
+        }
+
+        .bento-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .bento-body h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            line-height: 1.35;
+        }
+
+        .bento-body p {
+            font-size: 0.86rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .bento-action-link {
+            margin-top: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--love-secondary);
+            transition: var(--transition);
+        }
+
+        .bento-item:hover .bento-action-link {
+            color: var(--love-blush);
+            transform: translateX(4px);
+        }
+
+        /* Lightbox Cinema Modal */
+        #cinemaModal .modal-content {
+            max-width: 940px;
+            padding: 16px;
+            background: rgba(18, 6, 13, 0.96);
+            border: 1px solid rgba(244, 63, 94, 0.4);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95), 0 0 40px var(--love-glow);
+        }
+
+        .cinema-viewer {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 330px;
+            margin: 8px 0;
+            background: #020617;
             border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        #cinemaModalImg {
+            max-width: 100%;
+            max-height: 72vh;
+            object-fit: contain;
+        }
+
+        .cinema-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(26, 9, 18, 0.88);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            color: #ffffff;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 10;
+        }
+
+        .cinema-btn:hover {
+            background: var(--love-grad);
+            border-color: transparent;
+            transform: translateY(-50%) scale(1.08);
+            box-shadow: 0 0 20px var(--love-glow);
+        }
+
+        .cinema-btn.prev { left: 12px; }
+        .cinema-btn.next { right: 12px; }
+
+        @media (max-width: 768px) {
+            .love-hero-section h1 {
+                font-size: 2.1rem;
+            }
+            .bento-gallery-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .bento-media-box {
+                height: 220px;
+            }
         }
     </style>
 </head>
@@ -110,130 +419,171 @@
     <div class="glow-orb" id="orb-1"></div>
     <div class="glow-orb" id="orb-2"></div>
 
-    <!-- NAVIGATION -->
-    <nav class="glass-nav">
+    <!-- MAIN NAVIGATION WITH LOVE THEME -->
+    <nav class="glass-nav love-navbar">
         <div class="nav-content">
-            <a href="index.html" class="brand">Little<span>Garden</span></a>
+            <a href="index.html" class="brand love-brand">Little<span>Garden</span></a>
             <div class="nav-links">
-                <a href="index.html" class="nav-link">Home</a>
-                <a href="index.html#academics" class="nav-link">Academics</a>
-                <a href="index.html#facilities" class="nav-link">ICT & Labs</a>
-                <a href="index.html#admissions" class="nav-link">Admissions</a>
-                <a href="portal.html" class="nav-link" style="color: var(--accent);">👨‍👩‍👧 Parent Portal</a>
+                <a href="index.html" class="nav-link love-nav-link">Home</a>
+                <a href="index.html#academics" class="nav-link love-nav-link">Academics</a>
+                <a href="index.html#facilities" class="nav-link love-nav-link">ICT & Labs</a>
+                <a href="index.html#admissions" class="nav-link love-nav-link">Admissions</a>
+                <a href="portal.html" class="nav-link love-nav-link" style="color: var(--love-blush);">👨‍👩‍👧 Parent Portal</a>
             </div>
-            <a href="index.html#admissions" class="btn-action btn-primary" style="padding: 8px 18px; font-size: 0.82rem; text-decoration: none;">
+            <a href="index.html#admissions" class="btn-action btn-love" style="padding: 8px 18px; font-size: 0.82rem; text-decoration: none;">
                 Apply Now
             </a>
         </div>
     </nav>
 
-    <!-- HEADER SECTION -->
-    <header class="hero-section" style="padding: 60px 20px 20px 20px;">
-        <div class="hero-container">
-            <span class="badge-pill">📸 Campus Life & Co-Curriculars</span>
-            <h1>Moments of <span>Joy, Learning & Discovery</span></h1>
+    <div class="gallery-canvas">
+        <!-- HERO SECTION WITH LOVE THEME -->
+        <header class="love-hero-section">
+            <span class="love-badge">💖 Cherished Campus Memories</span>
+            <h1>Moments Filled with <span>Love, Warmth & Joy</span></h1>
             <p class="hero-subtext">
-                Explore how our students experiment, create art, learn computational thinking, and develop lifelong friendships every single day.
+                Explore our nurturing classrooms, creative art workshops, modern ICT smart labs, and joyful annual festivities across PlayGroup to Grade 5.
             </p>
-        </div>
-    </header>
+        </header>
 
-    <main class="app-container">
-        <!-- FILTER BUTTONS -->
-        <div class="filter-tags">
-            <button class="filter-btn active" onclick="filterGallery('all')">All Activities</button>
-            <button class="filter-btn" onclick="filterGallery('crafts')">🎨 Art & Crafts</button>
-            <button class="filter-btn" onclick="filterGallery('stem')">💻 ICT & STEM Lab</button>
-            <button class="filter-btn" onclick="filterGallery('sports')">⚽ Sports & Play</button>
-            <button class="filter-btn" onclick="filterGallery('celebrations')">🎉 Events & Functions</button>
-        </div>
-
-        <!-- GALLERY TILES -->
-        <div class="gallery-grid" id="galleryContainer">
-            
-            <!-- Item 1: Art & Craft -->
-            <div class="glass-card gallery-card" data-category="crafts" onclick="openLightbox('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1200&auto=format&fit=crop', 'Paper Origami & Clay Modeling Workshop')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">🎨 Art & Craft</span>
-                    <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=600&auto=format&fit=crop" alt="Students making paper origami" loading="lazy">
+        <main class="app-container" style="gap: 20px;">
+            <!-- TOOLBAR: SEARCH & CATEGORY FILTERS -->
+            <div class="gallery-toolbar">
+                <div class="search-pill-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="gallerySearch" placeholder="Search activities, crafts, robotics, sports..." oninput="handleGallerySearch()">
                 </div>
-                <div class="gallery-info">
-                    <h4>Clay & Paper Origami Workshop</h4>
-                    <p>Fostering fine motor skills and spatial imagination through hands-on sculpting and folding.</p>
+
+                <div class="filter-capsule-bar">
+                    <button class="filter-capsule active" onclick="filterGallery('all', event)">✨ All Moments</button>
+                    <button class="filter-capsule" onclick="filterGallery('crafts', event)">🎨 Art & Crafts</button>
+                    <button class="filter-capsule" onclick="filterGallery('stem', event)">💻 ICT & STEM</button>
+                    <button class="filter-capsule" onclick="filterGallery('sports', event)">⚽ Sports & Play</button>
+                    <button class="filter-capsule" onclick="filterGallery('celebrations', event)">🎉 Celebrations</button>
                 </div>
             </div>
 
-            <!-- Item 2: STEM & ICT -->
-            <div class="glass-card gallery-card" data-category="stem" onclick="openLightbox('https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop', 'Interactive Computer Lab & Coding Hours')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">💻 ICT Lab</span>
-                    <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=600&auto=format&fit=crop" alt="ICT Computer Lab session" loading="lazy">
+            <!-- BENTO PHOTO SHOWCASE GRID -->
+            <div class="bento-gallery-grid" id="galleryContainer">
+
+                <!-- Photo 1: Blue Day Celebration -->
+                <div class="bento-item" data-category="crafts" data-keywords="blue day color paper craft origami artwork" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">🎨 Art & Craft</span>
+                        <img src="images/school (19).JPG" alt="Blue Day origami craft" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Vibrant Blue Day Celebration</h3>
+                        <p>Creative expression through color-themed dressing and interactive classroom paper crafts.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
                 </div>
-                <div class="gallery-info">
-                    <h4>Computer Literacy & Block Logic</h4>
-                    <p>Early grade learners navigating interactive digital puzzles and foundational mouse & keyboard skills.</p>
+
+                <!-- Photo 2: ICT Computer Lab -->
+                <div class="bento-item" data-category="stem" data-keywords="ict lab computers robotics digital coding scratch logic" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">💻 ICT Lab</span>
+                        <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=800&auto=format&fit=crop" alt="Computer Lab Session" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Digital Literacy & Block Logic</h3>
+                        <p>Foundational computer literacy, mouse dexterity, and engaging educational puzzles.</p>
+                        <span class="bento-action-link">Special</span>
+                    </div>
                 </div>
+
+                <!-- Photo 3: Sports & Fitness -->
+                <div class="bento-item" data-category="sports" data-keywords="sports physical fitness obstacle races turf game agility" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">⚽ Sports & Fitness</span>
+                        <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=800&auto=format&fit=crop" alt="Kids playing sports" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Obstacle Sprint & Team Relays</h3>
+                        <p>Building agility, motor coordination, and sportsmanship on the school play turf.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
+                </div>
+
+                <!-- Photo 4: Annual Function Stage -->
+                <div class="bento-item" data-category="celebrations" data-keywords="annual function fest drama dance stage cultural performance" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">🎉 Cultural Fest</span>
+                        <img src="images/school (22).JPG" alt="Annual day costume drama" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Annual Fest Stage Performance</h3>
+                        <p>Showcasing stage confidence, dance rhythm, and storytelling in traditional festive attire.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
+                </div>
+
+                <!-- Photo 5: Junior STEM Lab -->
+                <div class="bento-item" data-category="stem" data-keywords="science discovery laboratory magnets physics plants junior" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">🔬 Science Hub</span>
+                        <img src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop" alt="Science Discovery" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Little Scientists Discovery Hub</h3>
+                        <p>Guided hands-on experiments exploring magnetism, plant life cycles, and simple physics.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
+                </div>
+
+                <!-- Photo 6: Art & Painting -->
+                <div class="bento-item" data-category="crafts" data-keywords="holiday christmas painting crafts colors greeting cards fine motor" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">🎨 Art & Craft</span>
+                        <img src="images/school (23).JPG" alt="Kids painting Christmas cards" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Holiday Crafts & Finger Painting</h3>
+                        <p>Nurturing creativity and fine-motor skills through festive card making and tactile paper art.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
+                </div>
+
+                <!-- Photo 7: Group Activity -->
+                <div class="bento-item" data-category="celebrations" data-keywords="snowman artwork crafts students exhibition collaborative" onclick="openCinemaModal(this)">
+                    <div class="bento-media-box">
+                        <span class="floating-tag-badge">🎉 Celebrations</span>
+                        <img src="images/school (17).JPG" alt="Students showing artwork" loading="lazy">
+                    </div>
+                    <div class="bento-body">
+                        <h3>Festive Snowman & Activity Showcase</h3>
+                        <p>Young learners proudly presenting their handcrafted art creations in class.</p>
+                        <span class="bento-action-link"></span>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- Item 3: Sports & Recreation -->
-            <div class="glass-card gallery-card" data-category="sports" onclick="openLightbox('https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=1200&auto=format&fit=crop', 'Annual Sports Sprint & Coordination Games')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">⚽ Sports & Fitness</span>
-                    <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?q=80&w=600&auto=format&fit=crop" alt="Kids playing outdoor sports" loading="lazy">
-                </div>
-                <div class="gallery-info">
-                    <h4>Obstacle Run & Team Relays</h4>
-                    <p>Building stamina, agility, and sportsmanship on the school's safe turf sports field.</p>
-                </div>
+            <!-- EMPTY SEARCH FALLBACK -->
+            <div id="noResultsBox" style="display:none; text-align:center; padding:50px 20px;">
+                <div style="font-size: 2.8rem; margin-bottom: 12px;">🔍</div>
+                <h3 style="color:#ffffff; font-size:1.3rem;">No Moments Found</h3>
+                <p style="color:var(--text-dim); font-size:0.9rem; margin-top:6px;">Try adjusting your search terms or filter selection.</p>
             </div>
+        </main>
+    </div>
 
-            <!-- Item 4: Celebrations & Drama -->
-            <div class="glass-card gallery-card" data-category="celebrations" onclick="openLightbox('https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=1200&auto=format&fit=crop', 'Annual Day Cultural Fest & Stage Drama')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">🎉 Cultural Fest</span>
-                    <img src="https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=600&auto=format&fit=crop" alt="Students in traditional attire for annual function" loading="lazy">
-                </div>
-                <div class="gallery-info">
-                    <h4>Annual Fest Stage Performance</h4>
-                    <p>Showcasing confidence, musical rhythm, and theatrical storytelling in costume.</p>
-                </div>
-            </div>
-
-            <!-- Item 5: Science Discovery -->
-            <div class="glass-card gallery-card" data-category="stem" onclick="openLightbox('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=1200&auto=format&fit=crop', 'Junior Science Day Experiment Hub')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">🔬 Science Hub</span>
-                    <img src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=600&auto=format&fit=crop" alt="Children working on a science project" loading="lazy">
-                </div>
-                <div class="gallery-info">
-                    <h4>Little Scientists Discovery Hub</h4>
-                    <p>Exploring plants, buoyancy, and magnetic pull through safe, guided practical experiments.</p>
-                </div>
-            </div>
-
-            <!-- Item 6: Finger Painting & Arts -->
-            <div class="glass-card gallery-card" data-category="crafts" onclick="openLightbox('https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?q=80&w=1200&auto=format&fit=crop', 'Pre-Primary Finger Painting & Color Theory')">
-                <div class="gallery-img-wrapper">
-                    <span class="gallery-tag-pill">🎨 Art & Craft</span>
-                    <img src="https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?q=80&w=600&auto=format&fit=crop" alt="Finger painting art" loading="lazy">
-                </div>
-                <div class="gallery-info">
-                    <h4>Vibrant Finger Painting Day</h4>
-                    <p>Sensory exploration with non-toxic colors helping kindergarteners express feelings creatively.</p>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
-    <!-- FULLSCREEN LIGHTBOX MODAL -->
-    <div id="lightboxModal" class="modal-overlay" style="display:none;" onclick="closeLightbox()">
+    <!-- FULLSCREEN CINEMA MODAL -->
+    <div id="cinemaModal" class="modal-overlay" style="display:none;" onclick="closeCinemaModal()">
         <div class="glass-card modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header" style="border: none; margin-bottom: 8px;">
-                <h4 id="lightboxCaption" style="margin: 0; color: #ffffff;">Image View</h4>
-                <button class="close-btn" onclick="closeLightbox()">&times;</button>
+            <div class="modal-header" style="border: none; margin-bottom: 6px;">
+                <div>
+                    <span id="cinemaTag" class="badge-pill" style="font-size: 0.72rem; padding: 3px 12px; margin-bottom: 6px;">Category</span>
+                    <h3 id="cinemaTitle" style="margin: 0; font-size: 1.25rem; color: #ffffff;">Image View</h3>
+                </div>
+                <button class="close-btn" onclick="closeCinemaModal()">&times;</button>
             </div>
-            <img id="lightboxImg" src="" alt="Full preview">
+
+            <div class="cinema-viewer">
+                <button class="cinema-btn prev" onclick="navigateCinema(-1)" title="Previous photo">&#10094;</button>
+                <img id="cinemaModalImg" src="" alt="Fullscreen preview">
+                <button class="cinema-btn next" onclick="navigateCinema(1)" title="Next photo">&#10095;</button>
+            </div>
         </div>
     </div>
 
@@ -251,37 +601,113 @@
         </div>
     </footer>
 
-    <!-- INTERACTIVE SCRIPTS -->
+    <!-- JAVASCRIPT -->
     <script>
-        // Category filtering
-        function filterGallery(category) {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+        let currentCategory = 'all';
+        let visibleItems = [];
+        let currentCinemaIndex = 0;
 
-            const items = document.querySelectorAll('.gallery-card');
-            items.forEach(item => {
-                const itemCat = item.getAttribute('data-category');
-                if (category === 'all' || itemCat === category) {
-                    item.style.display = 'flex';
+        function filterGallery(category, event) {
+            currentCategory = category;
+            document.querySelectorAll('.filter-capsule').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) {
+                const btn = event.target.closest('.filter-capsule');
+                if (btn) btn.classList.add('active');
+            }
+            applyFilters();
+        }
+
+        function handleGallerySearch() {
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const query = (document.getElementById('gallerySearch').value || '').toLowerCase().trim();
+            const cards = document.querySelectorAll('.bento-item');
+            let matchedCount = 0;
+
+            cards.forEach(card => {
+                const cat = card.getAttribute('data-category');
+                const title = (card.querySelector('h3')?.innerText || '').toLowerCase();
+                const desc = (card.querySelector('p')?.innerText || '').toLowerCase();
+                const keywords = (card.getAttribute('data-keywords') || '').toLowerCase();
+
+                const matchesCat = (currentCategory === 'all' || cat === currentCategory);
+                const matchesQuery = !query || title.includes(query) || desc.includes(query) || keywords.includes(query);
+
+                if (matchesCat && matchesQuery) {
+                    card.style.display = 'flex';
+                    matchedCount++;
                 } else {
-                    item.style.display = 'none';
+                    card.style.display = 'none';
+                }
+            });
+
+            const noResults = document.getElementById('noResultsBox');
+            if (noResults) {
+                noResults.style.display = matchedCount === 0 ? 'block' : 'none';
+            }
+        }
+
+        function refreshVisibleList() {
+            visibleItems = [];
+            const cards = document.querySelectorAll('.bento-item');
+            cards.forEach(card => {
+                if (window.getComputedStyle(card).display !== 'none') {
+                    const imgEl = card.querySelector('img');
+                    const titleEl = card.querySelector('h3');
+                    const tagEl = card.querySelector('.floating-tag-badge');
+                    
+                    visibleItems.push({
+                        img: imgEl ? imgEl.src : '',
+                        title: titleEl ? titleEl.innerText : 'Image View',
+                        tag: tagEl ? tagEl.innerText : 'Category'
+                    });
                 }
             });
         }
 
-        // Lightbox Zoom
-        function openLightbox(url, title) {
-            document.getElementById('lightboxImg').src = url;
-            document.getElementById('lightboxCaption').innerText = title;
-            document.getElementById('lightboxModal').style.display = 'flex';
+        function openCinemaModal(cardElement) {
+            refreshVisibleList();
+            
+            const clickedImgSrc = cardElement.querySelector('img')?.src;
+            const foundIndex = visibleItems.findIndex(item => item.img === clickedImgSrc);
+            
+            currentCinemaIndex = foundIndex !== -1 ? foundIndex : 0;
+
+            updateCinemaDisplay();
+            document.getElementById('cinemaModal').style.display = 'flex';
         }
 
-        function closeLightbox() {
-            document.getElementById('lightboxModal').style.display = 'none';
-            document.getElementById('lightboxImg').src = '';
+        function updateCinemaDisplay() {
+            if (visibleItems.length === 0) return;
+            const cur = visibleItems[currentCinemaIndex];
+            document.getElementById('cinemaModalImg').src = cur.img;
+            document.getElementById('cinemaTitle').innerText = cur.title;
+            document.getElementById('cinemaTag').innerText = cur.tag;
         }
 
-        // Auto-Hide Navbar On Scroll
+        function navigateCinema(direction) {
+            if (visibleItems.length === 0) return;
+            currentCinemaIndex = (currentCinemaIndex + direction + visibleItems.length) % visibleItems.length;
+            updateCinemaDisplay();
+        }
+
+        function closeCinemaModal() {
+            document.getElementById('cinemaModal').style.display = 'none';
+            document.getElementById('cinemaModalImg').src = '';
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const modal = document.getElementById('cinemaModal');
+            if (modal && modal.style.display === 'flex') {
+                if (e.key === 'ArrowRight') navigateCinema(1);
+                if (e.key === 'ArrowLeft') navigateCinema(-1);
+                if (e.key === 'Escape') closeCinemaModal();
+            }
+        });
+
+        // Navbar auto-hide on scroll
         let lastScrollY = window.scrollY;
         const nav = document.querySelector('.glass-nav');
         window.addEventListener('scroll', () => {
