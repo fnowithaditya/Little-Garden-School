@@ -10,23 +10,22 @@ const firebaseConfig = {
 
 const app = firebase.initializeApp(firebaseConfig);
 const db = app.firestore();
+const auth = app.auth();
 
 let activeStudent = null;
 let fullReceiptText = "";
 
-// --- AUTO-RESTORE PARENT SESSION ON PAGE LOAD / REFRESH ---
+// --- 1. AUTO-RESTORE SESSION ON REFRESH ---
 window.addEventListener('DOMContentLoaded', async () => {
     const savedSession = localStorage.getItem('lg_parent_session');
     if (savedSession) {
         try {
             const parsed = JSON.parse(savedSession);
-            // Re-fetch latest student data from Firestore in case balance updated
             const docRef = await db.collection("students").doc(parsed.id).get();
             if (docRef.exists) {
                 activeStudent = { id: docRef.id, ...docRef.data() };
                 renderParentDashboard();
             } else {
-                // If student no longer exists, clear storage
                 localStorage.removeItem('lg_parent_session');
             }
         } catch (e) {
@@ -36,10 +35,47 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- 1. PARENT LOGIN PROCESSOR ---
+// --- 2. GOOGLE SIGN-IN HANDLER ---
+async function handleGoogleParentLogin() {
+    const errorBox = document.getElementById('portalLoginError');
+    errorBox.style.display = 'none';
+
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const result = await auth.signInWithPopup(provider);
+        const email = (result.user.email || '').toLowerCase().trim();
+
+        const snap = await db.collection("students").where("parentEmail", "==", email).limit(1).get();
+
+        if (snap.empty) {
+            errorBox.innerText = `No student linked to (${email}). Please log in with Student ID or contact school admin.`;
+            errorBox.style.display = 'block';
+            await auth.signOut();
+            return;
+        }
+
+        const doc = snap.docs[0];
+        activeStudent = { id: doc.id, ...doc.data() };
+
+        localStorage.setItem('lg_parent_session', JSON.stringify({
+            id: activeStudent.id,
+            studentId: activeStudent.studentId,
+            authType: 'google'
+        }));
+
+        renderParentDashboard();
+    } catch (err) {
+        console.error(err);
+        errorBox.innerText = "Google sign-in error: " + err.message;
+        errorBox.style.display = 'block';
+    }
+}
+
+// --- 3. DIRECT ID & PASSWORD LOGIN (NO ANONYMOUS AUTH) ---
 async function handleParentLogin(e) {
     e.preventDefault();
-    const enteredId = document.getElementById('parentLoginId').value.trim().toUpperCase();
+    const rawId = document.getElementById('parentLoginId').value.trim().toUpperCase();
+    const enteredId = rawId.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, "-");
     const enteredPass = document.getElementById('parentLoginPass').value.trim();
     const errorBox = document.getElementById('portalLoginError');
 
@@ -48,29 +84,25 @@ async function handleParentLogin(e) {
     try {
         let matchedDoc = null;
 
-        // Query by assigned student ID
-        const snap = await db.collection("students").where("studentId", "==", enteredId).get();
+        const snap = await db.collection("students").where("studentId", "==", enteredId).limit(1).get();
 
         if (!snap.empty) {
-            snap.forEach(doc => {
+            const doc = snap.docs[0];
+            const data = doc.data() || {};
+            const validPassword = String(data.password || data.phone || "").slice(-10);
+            if (validPassword === enteredPass) {
+                matchedDoc = { id: doc.id, ...data };
+            }
+        } else {
+            const phoneSnap = await db.collection("students").where("phone", "==", enteredId).limit(1).get();
+            if (!phoneSnap.empty) {
+                const doc = phoneSnap.docs[0];
                 const data = doc.data() || {};
-                const validPassword = data.password || String(data.phone || "").slice(-10);
+                const validPassword = String(data.password || data.phone || "").slice(-10);
                 if (validPassword === enteredPass) {
                     matchedDoc = { id: doc.id, ...data };
                 }
-            });
-        } else {
-            // Fallback match for legacy records
-            const allSnap = await db.collection("students").get();
-            allSnap.forEach(doc => {
-                const data = doc.data() || {};
-                const fallbackId = `LG2026-${doc.id.slice(0, 3).toUpperCase()}`;
-                const validPassword = data.password || String(data.phone || "").slice(-10);
-
-                if ((enteredId === fallbackId || enteredId === String(data.phone)) && validPassword === enteredPass) {
-                    matchedDoc = { id: doc.id, ...data, studentId: fallbackId };
-                }
-            });
+            }
         }
 
         if (!matchedDoc) {
@@ -81,10 +113,10 @@ async function handleParentLogin(e) {
 
         activeStudent = matchedDoc;
         
-        // PERSIST SESSION TO LOCALSTORAGE
         localStorage.setItem('lg_parent_session', JSON.stringify({
             id: activeStudent.id,
-            studentId: activeStudent.studentId
+            studentId: activeStudent.studentId,
+            authType: 'id_password'
         }));
 
         renderParentDashboard();
@@ -94,8 +126,11 @@ async function handleParentLogin(e) {
     }
 }
 
-// --- 2. RENDER PARENT DASHBOARD ---
+// --- 4. RENDER DASHBOARD ---
 async function renderParentDashboard() {
+   
+const emailDisplay = activeStudent.parentEmail ? ` | Email: ${activeStudent.parentEmail}` : '';
+document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.class || 'N/A'} | Guardian Contact: +91 ${activeStudent.phone}${emailDisplay}`;
     document.getElementById('portal-login-view').style.display = 'none';
     const dash = document.getElementById('portal-dashboard-view');
     dash.style.display = 'flex';
@@ -134,43 +169,46 @@ async function renderParentDashboard() {
     await loadParentLedger();
 }
 
-// --- 3. FETCH TRANSACTION LEDGER ---
+// --- 5. TRANSACTION LEDGER ---
 async function loadParentLedger() {
     const container = document.getElementById('parentHistoryContainer');
     container.innerHTML = '<p style="color:var(--text-dim); font-size:0.85rem;">Loading transactions...</p>';
 
-    const snap = await db.collection("students").doc(activeStudent.id)
-        .collection("paymentHistory")
-        .orderBy("timestamp", "desc")
-        .get();
+    try {
+        const snap = await db.collection("students").doc(activeStudent.id)
+            .collection("paymentHistory")
+            .get();
 
-    if (snap.empty) {
-        container.innerHTML = '<p style="color:var(--text-dim); font-size:0.85rem;">No historical payment logs on record yet.</p>';
-        return;
+        if (snap.empty) {
+            container.innerHTML = '<p style="color:var(--text-dim); font-size:0.85rem;">No historical payment logs on record yet.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        snap.forEach(doc => {
+            const log = doc.data() || {};
+            const amt = Number(log.amount || 0);
+            const isAdj = log.type === 'adjustment';
+
+            const row = document.createElement('div');
+            row.style.cssText = "display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.35); padding:12px 16px; border-radius:var(--radius-sm); border:1px solid var(--glass-border);";
+
+            row.innerHTML = `
+                <div>
+                    <b style="color:${isAdj ? '#a5b4fc' : '#34d399'}">${amt >= 0 ? `₹${amt}` : `-₹${Math.abs(amt)}`}</b>
+                    <small style="color:var(--text-muted); margin-left:8px;">(${log.note || 'Fee Settlement'})</small><br>
+                    <small style="color:var(--text-dim); font-size:11px;">Remaining Due: ₹${log.remainingDue !== undefined ? log.remainingDue : '-'}</small>
+                </div>
+                <small style="color:var(--text-dim);">${log.date || '-'}</small>
+            `;
+            container.appendChild(row);
+        });
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--text-dim); font-size:0.85rem;">No historical payment logs found.</p>';
     }
-
-    container.innerHTML = '';
-    snap.forEach(doc => {
-        const log = doc.data() || {};
-        const amt = Number(log.amount || 0);
-        const isAdj = log.type === 'adjustment';
-
-        const row = document.createElement('div');
-        row.style.cssText = "display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.35); padding:12px 16px; border-radius:var(--radius-sm); border:1px solid var(--glass-border);";
-
-        row.innerHTML = `
-            <div>
-                <b style="color:${isAdj ? '#a5b4fc' : '#34d399'}">${amt >= 0 ? `₹${amt}` : `-₹${Math.abs(amt)}`}</b>
-                <small style="color:var(--text-muted); margin-left:8px;">(${log.note || 'Fee Settlement'})</small><br>
-                <small style="color:var(--text-dim); font-size:11px;">Remaining Due: ₹${log.remainingDue !== undefined ? log.remainingDue : '-'}</small>
-            </div>
-            <small style="color:var(--text-dim);">${log.date || '-'}</small>
-        `;
-        container.appendChild(row);
-    });
 }
 
-// --- 4. LUXURY CLASSY UPI CHECKOUT & QR DISPLAY ---
+// --- 6. UPI CHECKOUT ---
 function initiateFeePayment() {
     const amt = Number(document.getElementById('payAmountInput').value);
     if (!amt || amt <= 0) {
@@ -183,17 +221,12 @@ function initiateFeePayment() {
     const studentTag = `${activeStudent.name} (${activeStudent.studentId || 'LG2026'})`;
     const note = `Fee - ${studentTag}`;
 
-    // Standard NPCI UPI URI
     const upiUri = `upi://pay?pa=${encodeURIComponent(schoolVpa)}&pn=${encodeURIComponent(schoolName)}&am=${amt}&cu=INR&tn=${encodeURIComponent(note)}`;
 
-    // If Parent is on mobile device -> Open native UPI apps directly
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         window.location.href = upiUri;
         return;
     }
-
-    // High-Res Static QR source
-    const qrImageSource = "qr.png";
 
     document.getElementById('receiptModalTitle').innerText = "⚡ Instant UPI Fee Payment";
     const previewBox = document.getElementById('receipt-preview-box');
@@ -201,13 +234,13 @@ function initiateFeePayment() {
     previewBox.innerHTML = `
         <div class="qr-card-container">
             <span class="badge-pill" style="font-size:0.72rem; padding:4px 12px; margin-bottom:8px; border-color:rgba(16,185,129,0.3); color:#34d399; background:rgba(16,185,129,0.1);">
-                ✓ NPCI Verified Direct Merchant
+                ✓ Verified Direct Merchant
             </span>
             <h4 style="margin: 4px 0 2px 0; color:#ffffff; font-size:1.15rem;">₹${amt.toLocaleString('en-IN')}</h4>
             <p style="color:var(--text-dim); font-size:0.78rem;">Settling fees for <b>${activeStudent.name}</b></p>
             
             <div class="qr-frame">
-                <img src="${qrImageSource}" alt="Little Garden UPI QR" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}'">
+                <img src="qr.png" alt="Little Garden UPI QR" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}'">
             </div>
 
             <div>
@@ -234,54 +267,40 @@ function initiateFeePayment() {
     document.getElementById('receiptModal').style.display = 'flex';
 }
 
-// --- 5. UTR VERIFICATION & BALANCE UPDATE ---
+// --- 7. SUBMIT UTR CLAIM ---
 async function confirmUpiPaymentSubmission(amt) {
     const utrInput = document.getElementById('upiUtrNumber');
     const utr = utrInput ? utrInput.value.trim() : '';
 
     if (!utr || utr.length < 8) {
-        alert("Please enter a valid 12-digit UPI Reference / UTR Number from your bank transaction screen.");
+        alert("Please enter a valid 12-digit UPI Reference / UTR Number from your bank app.");
         return;
     }
 
     const nowStr = new Date().toLocaleString('en-IN');
-    const currentDue = Number(activeStudent.amount || 0);
-    const newDue = Math.max(0, currentDue - amt);
-    const newTotalPaid = Number(activeStudent.totalPaid || 0) + amt;
-
-    const docRef = db.collection("students").doc(activeStudent.id);
 
     try {
-        await docRef.update({
-            amount: newDue,
-            totalPaid: newTotalPaid,
-            lastPaidAmt: amt,
-            lastPaymentDate: nowStr,
-            isPaid: (newDue <= 0)
-        });
-
-        await docRef.collection("paymentHistory").add({
+        await db.collection("pendingPayments").add({
+            studentDocId: activeStudent.id,
+            studentId: activeStudent.studentId,
+            studentName: activeStudent.name,
+            class: activeStudent.class || 'N/A',
+            phone: activeStudent.phone || '',
             amount: amt,
-            type: "payment",
-            method: "UPI Direct (IDFC)",
-            note: `UPI UTR Ref: ${utr}`,
-            remainingDue: newDue,
-            date: nowStr,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            utrNumber: utr,
+            status: "PENDING",
+            submittedAtStr: nowStr,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert(`🎉 Payment of ₹${amt} logged successfully!\nUTR Reference: ${utr}\nYour balance has been updated.`);
+        alert(`✓ Payment reference submitted!\n\nUTR: ${utr}\nAmount: ₹${amt}\n\nStatus: Pending verification. Your balance will update automatically once verified by the school office.`);
         document.getElementById('receiptModal').style.display = 'none';
-        
-        activeStudent.amount = newDue;
-        activeStudent.totalPaid = newTotalPaid;
-        renderParentDashboard();
     } catch (err) {
-        alert("Error logging payment: " + err.message);
+        alert("Error submitting payment claim: " + err.message);
     }
 }
 
-// --- 6. RECEIPT BUILDER & STATEMENTS ---
+// --- 8. FULL STATEMENT BUILDER ---
 async function openCompleteReceipt() {
     const txnId = 'LG-PR-' + Math.floor(100000 + Math.random() * 900000);
     const currentDate = new Date().toLocaleDateString('en-IN');
@@ -290,7 +309,6 @@ async function openCompleteReceipt() {
     let historyTable = "";
     const snap = await db.collection("students").doc(activeStudent.id)
         .collection("paymentHistory")
-        .orderBy("timestamp", "asc")
         .get();
 
     snap.forEach((doc, idx) => {
@@ -339,10 +357,13 @@ function copyUpiId(upiId) {
     alert(`UPI ID "${upiId}" copied to clipboard!`);
 }
 
-// --- 7. LOGOUT & CLEAR SESSION ---
-function handleParentLogout() {
+// --- 9. LOGOUT HANDLER ---
+async function handleParentLogout() {
     activeStudent = null;
-    localStorage.removeItem('lg_parent_session'); // Clears saved session
+    localStorage.removeItem('lg_parent_session');
+    if (auth.currentUser) {
+        await auth.signOut();
+    }
     document.getElementById('portal-dashboard-view').style.display = 'none';
     document.getElementById('portal-login-view').style.display = 'block';
     document.getElementById('portalLogoutBtn').style.display = 'none';
