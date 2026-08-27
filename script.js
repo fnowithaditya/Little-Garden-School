@@ -17,6 +17,7 @@ let allStudentsList = [];
 let currentStudentId = null;
 let currentStudentData = null;
 let generatedReceiptText = "";
+let editingStudentDocId = null;
 
 // --- AUTH STATE OBSERVER ---
 auth.onAuthStateChanged(user => {
@@ -47,7 +48,7 @@ async function handleAdminLogin(e) {
         await auth.signInWithEmailAndPassword(email, pass);
     } catch (err) {
         console.error("Login failed:", err);
-        errText.innerText = "Login failed: " + err.message;
+        errText.innerText = "Login failed: check your credentials or network connection.";
         errText.style.display = "block";
     }
 }
@@ -72,6 +73,7 @@ function showPage(pageId) {
     if (pageId === 'admin') {
         populateAdminStudentDropdown();
         loadAdmissionEnquiries();
+        loadPendingPayments();
     }
 }
 
@@ -98,6 +100,7 @@ async function loadAllData() {
                 studentId: s.studentId || `LG2026-${doc.id.slice(0, 3).toUpperCase()}`,
                 password: s.password || String(s.phone || '').slice(-10),
                 name: s.name || 'Unnamed Student',
+                parentEmail: s.parentEmail || '',
                 class: s.class || 'Unassigned',
                 phone: s.phone || 'No Phone',
                 monthlyFee: Number(s.monthlyFee || 0),
@@ -140,6 +143,7 @@ function renderStudentTable(students) {
                 <b>${s.name}</b> <small style="color:var(--primary)">[${s.class}]</small><br>
                 <small style="color:#a5b4fc; font-family:monospace; font-weight:700;">ID: ${s.studentId}</small> | 
                 <small style="color:var(--text-dim)">📞 ${s.phone}</small>
+                ${s.parentEmail ? `<br><small style="color:var(--text-muted); font-size:11px;">✉️ ${s.parentEmail}</small>` : ''}
             </td>
             <td style="color:#ef4444; font-weight:800">₹${s.amount.toLocaleString('en-IN')}</td>
             <td><small>₹${s.lastPaidAmt.toLocaleString('en-IN')}</small><br><small style="font-size:10px; color:var(--text-dim)">${s.lastPaymentDate}</small></td>
@@ -154,17 +158,20 @@ function renderStudentTable(students) {
     });
 }
 
-// --- 1. STUDENT REGISTRATION (INCLUDES TUITION + TRANSPORT) ---
+// --- 1. STUDENT REGISTRATION ---
 async function addStudentToFirebase(e) {
     if (e) e.preventDefault();
     const name = document.getElementById('studentName').value.trim();
     const phone = document.getElementById('parentPhone').value.trim();
     const stClass = document.getElementById('studentClass').value;
     const tuitionFee = Number(document.getElementById('feeAmount').value || 0);
-    
-    // Transport Handling
-    const hasTransport = document.getElementById('transportOptCheck').checked;
-    const transportFee = hasTransport ? Number(document.getElementById('studentTransportFee').value || 0) : 0;
+
+    const emailInput = document.getElementById('parentEmail');
+    const parentEmail = emailInput ? emailInput.value.toLowerCase().trim() : '';
+
+    const hasTransport = document.getElementById('transportOptCheck') ? document.getElementById('transportOptCheck').checked : false;
+    const transportFeeInput = document.getElementById('studentTransportFee');
+    const transportFee = (hasTransport && transportFeeInput) ? Number(transportFeeInput.value || 0) : 0;
     const initialDue = tuitionFee + transportFee;
 
     if (!name) {
@@ -182,6 +189,7 @@ async function addStudentToFirebase(e) {
             password: defaultPassword,
             name: name.toUpperCase(),
             phone: phone || "0000000000",
+            parentEmail: parentEmail,
             class: stClass,
             monthlyFee: tuitionFee,
             hasTransport: hasTransport,
@@ -194,9 +202,10 @@ async function addStudentToFirebase(e) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert(`✅ Student Registered Successfully!\n\nID: ${generatedId}\nPassword: ${defaultPassword}\nTuition Fee: ₹${tuitionFee}\nTransport Fee: ₹${transportFee}\nTotal Opening Due: ₹${initialDue}`);
+        alert(`✅ Student Registered Successfully!\n\nID: ${generatedId}\nEmail: ${parentEmail || 'Not Linked'}\nPassword: ${defaultPassword}\nTuition Fee: ₹${tuitionFee}\nTransport Fee: ₹${transportFee}\nTotal Opening Due: ₹${initialDue}`);
         document.getElementById('addStudentForm').reset();
-        document.getElementById('transportFeeInputBox').style.display = 'none';
+        const transportBox = document.getElementById('transportFeeInputBox');
+        if (transportBox) transportBox.style.display = 'none';
         showPage('dashboard');
         loadAllData();
     } catch (err) {
@@ -204,24 +213,25 @@ async function addStudentToFirebase(e) {
     }
 }
 
-// --- 2. ENROLL FROM ADMISSION LEADS (PROMPTS FOR TRANSPORT) ---
+// --- 2. ENROLL FROM ADMISSION LEADS ---
 async function enrollEnquiryAsStudent(enquiryId, encodedData) {
     const data = JSON.parse(decodeURIComponent(encodedData));
     const child = data.childName || data.name || 'Student';
     const grade = data.grade || data.class || 'Nursery';
     
-    // Step 1: Tuition Fee Prompt
-    const feeStr = prompt(`Step 1/2: Enter Base Monthly Tuition Fee for ${child} (${grade}):`, "1500");
+    const feeStr = prompt(`Step 1/3: Enter Base Monthly Tuition Fee for ${child} (${grade}):`, "1500");
     if (feeStr === null) return;
     const tuitionFee = Number(feeStr) || 0;
 
-    // Step 2: Transport Question & Fee Prompt
-    const needsTransport = confirm(`Step 2/2: Does ${child} require School Bus / Transport Service?`);
+    const needsTransport = confirm(`Step 2/3: Does ${child} require School Bus / Transport Service?`);
     let transportFee = 0;
     if (needsTransport) {
         const transStr = prompt(`Enter Monthly Transport Fee for ${child}:`, "800");
         transportFee = Number(transStr) || 0;
     }
+
+    const parentEmailInput = prompt(`Step 3/3: (Optional) Enter Guardian Google Email for portal sign-in:`, "");
+    const parentEmail = parentEmailInput ? parentEmailInput.toLowerCase().trim() : "";
 
     const totalInitialDue = tuitionFee + transportFee;
     const randomSuffix = Math.floor(100 + Math.random() * 900);
@@ -234,6 +244,7 @@ async function enrollEnquiryAsStudent(enquiryId, encodedData) {
             password: defaultPassword,
             name: child.toUpperCase(),
             phone: data.phone || "0000000000",
+            parentEmail: parentEmail,
             class: grade,
             monthlyFee: tuitionFee,
             hasTransport: needsTransport,
@@ -249,7 +260,7 @@ async function enrollEnquiryAsStudent(enquiryId, encodedData) {
         await db.collection("admissionEnquiries").doc(enquiryId).delete().catch(() => {});
         await db.collection("admissions").doc(enquiryId).delete().catch(() => {});
 
-        alert(`🎉 ${child} Enrolled!\nStudent ID: ${generatedId}\nTuition: ₹${tuitionFee} | Transport: ₹${transportFee}\nOpening Due: ₹${totalInitialDue}`);
+        alert(`🎉 ${child} Enrolled!\nStudent ID: ${generatedId}\nEmail: ${parentEmail || 'Not Linked'}\nTuition: ₹${tuitionFee} | Transport: ₹${transportFee}\nOpening Due: ₹${totalInitialDue}`);
         loadAdmissionEnquiries();
         loadAllData();
     } catch (err) {
@@ -289,7 +300,6 @@ async function executeMonthlyTransportBilling() {
                     isPaid: false
                 });
 
-                // Log adjustment item in history
                 const histRef = doc.ref.collection("paymentHistory").doc();
                 batch.set(histRef, {
                     amount: tFee,
@@ -312,6 +322,7 @@ async function executeMonthlyTransportBilling() {
         alert("Error applying transport fees: " + err.message);
     }
 }
+
 // --- SEARCH & FILTER ---
 function filterStudents() {
     const searchVal = document.getElementById('studentSearch').value.toLowerCase();
@@ -568,84 +579,152 @@ async function copyReceiptToClipboard() {
 function populateAdminStudentDropdown() {
     const select = document.getElementById('adminStudentSelect');
     if (!select) return;
+    const currentSelectedId = editingStudentDocId || select.value;
     select.innerHTML = '<option value="">-- Choose Student --</option>';
 
-    allStudentsList.forEach((st, idx) => {
+    allStudentsList.forEach(st => {
         const opt = document.createElement('option');
-        opt.value = idx;
+        opt.value = st.id;
         opt.innerText = `${st.name} [ID: ${st.studentId}] (${st.class})`;
         select.appendChild(opt);
     });
+
+    if (currentSelectedId) select.value = currentSelectedId;
 }
 
 function loadStudentToAdminEditor() {
-    const idx = document.getElementById('adminStudentSelect').value;
+    const select = document.getElementById('adminStudentSelect');
+    const studentDocId = select.value;
     const card = document.getElementById('adminEditorCard');
 
-    if (idx === "") {
+    if (!studentDocId) {
         card.style.display = 'none';
+        editingStudentDocId = null;
         return;
     }
 
-    const st = allStudentsList[idx];
+    const st = allStudentsList.find(s => s.id === studentDocId);
+    if (!st) {
+        alert("Student data not found.");
+        return;
+    }
+
+    editingStudentDocId = st.id;
+
     document.getElementById('admin-editor-title').innerText = `Editing: ${st.name}`;
     document.getElementById('admin-view-id').innerText = st.studentId || `LG2026-${st.id.slice(0, 3).toUpperCase()}`;
     document.getElementById('admin-view-pass').innerText = st.password || String(st.phone || '').slice(-10);
-    document.getElementById('admin-phone').value = st.phone === "No Phone" ? "" : st.phone;
-    document.getElementById('admin-class').value = st.class;
-    document.getElementById('admin-monthly-fee').value = st.monthlyFee;
-    document.getElementById('admin-due-amt').value = st.amount;
-    document.getElementById('admin-paid-amt').value = st.totalPaid;
+    
+    // Fill all form fields
+    const nameField = document.getElementById('admin-student-name');
+    if (nameField) nameField.value = st.name || "";
+
+    const emailField = document.getElementById('admin-parent-email');
+    if (emailField) emailField.value = st.parentEmail || "";
+
+    const phoneField = document.getElementById('admin-phone');
+    if (phoneField) phoneField.value = st.phone === "No Phone" ? "" : st.phone;
+
+    const classField = document.getElementById('admin-class');
+    if (classField) classField.value = st.class || "";
+
+    const feeField = document.getElementById('admin-monthly-fee');
+    if (feeField) feeField.value = st.monthlyFee || 0;
+
+    const dueField = document.getElementById('admin-due-amt');
+    if (dueField) dueField.value = st.amount || 0;
+
+    const paidField = document.getElementById('admin-paid-amt');
+    if (paidField) paidField.value = st.totalPaid || 0;
 
     card.style.display = 'block';
     fetchPaymentHistory(st.id, 'admin-history-timeline', st);
 }
 
 async function saveAdminStudentUpdates() {
-    const idx = document.getElementById('adminStudentSelect').value;
-    if (idx === "") return;
-    const st = allStudentsList[idx];
+    if (!editingStudentDocId) {
+        alert("Please select a student from the dropdown first.");
+        return;
+    }
 
-    const phone = document.getElementById('admin-phone').value.trim();
-    const stClass = document.getElementById('admin-class').value.trim();
-    const monthlyFee = Number(document.getElementById('admin-monthly-fee').value);
-    const due = Number(document.getElementById('admin-due-amt').value);
-    const totalPaid = Number(document.getElementById('admin-paid-amt').value);
+    const nameField = document.getElementById('admin-student-name');
+    const name = nameField ? nameField.value.trim().toUpperCase() : '';
 
-    await db.collection("students").doc(st.id).update({
-        phone: phone || "0000000000",
-        class: stClass || "Unassigned",
-        monthlyFee: monthlyFee,
-        amount: due,
-        totalPaid: totalPaid,
-        isPaid: (due <= 0)
-    });
+    const phoneField = document.getElementById('admin-phone');
+    const phone = phoneField ? phoneField.value.trim() : "0000000000";
 
-    alert("Student profile updated!");
-    await loadAllData();
-    showPage('admin');
+    const emailField = document.getElementById('admin-parent-email');
+    const parentEmail = emailField ? emailField.value.toLowerCase().trim() : '';
+
+    const classField = document.getElementById('admin-class');
+    const stClass = classField ? classField.value.trim() : "Unassigned";
+
+    const feeField = document.getElementById('admin-monthly-fee');
+    const monthlyFee = Number(feeField ? feeField.value : 0);
+
+    const dueField = document.getElementById('admin-due-amt');
+    const due = Number(dueField ? dueField.value : 0);
+
+    const paidField = document.getElementById('admin-paid-amt');
+    const totalPaid = Number(paidField ? paidField.value : 0);
+
+    if (!name) {
+        alert("Student Name cannot be empty.");
+        return;
+    }
+
+    try {
+        await db.collection("students").doc(editingStudentDocId).update({
+            name: name,
+            phone: phone || "0000000000",
+            parentEmail: parentEmail,
+            class: stClass || "Unassigned",
+            monthlyFee: monthlyFee,
+            amount: due,
+            totalPaid: totalPaid,
+            isPaid: (due <= 0)
+        });
+
+        alert("✓ Changes saved successfully to Firestore!");
+        
+        // Reload in-memory list and keep selected state
+        await loadAllData();
+        
+        const select = document.getElementById('adminStudentSelect');
+        if (select) {
+            select.value = editingStudentDocId;
+            loadStudentToAdminEditor();
+        }
+    } catch (err) {
+        console.error("Firestore update error:", err);
+        alert("Failed to save changes: " + err.message);
+    }
 }
 
 async function deleteStudentAdmin() {
-    const idx = document.getElementById('adminStudentSelect').value;
-    if (idx === "") return;
-    const st = allStudentsList[idx];
+    if (!editingStudentDocId) return;
+    const st = allStudentsList.find(s => s.id === editingStudentDocId);
+    if (!st) return;
 
     if (!confirm(`Are you sure you want to permanently delete ${st.name}?`)) return;
 
-    const snap = await db.collection("students").doc(st.id).collection("paymentHistory").get();
-    const batch = db.batch();
-    snap.forEach(d => batch.delete(d.ref));
-    batch.delete(db.collection("students").doc(st.id));
-    await batch.commit();
+    try {
+        const snap = await db.collection("students").doc(editingStudentDocId).collection("paymentHistory").get();
+        const batch = db.batch();
+        snap.forEach(d => batch.delete(d.ref));
+        batch.delete(db.collection("students").doc(editingStudentDocId));
+        await batch.commit();
 
-    alert("Student record removed.");
-    document.getElementById('adminEditorCard').style.display = 'none';
-    await loadAllData();
-    showPage('admin');
+        alert("Student record removed.");
+        document.getElementById('adminEditorCard').style.display = 'none';
+        editingStudentDocId = null;
+        await loadAllData();
+        showPage('admin');
+    } catch (err) {
+        alert("Error deleting student: " + err.message);
+    }
 }
 
-// --- ADMISSION LEADS MANAGEMENT ---
 // --- ADMISSION LEADS MANAGEMENT ---
 async function loadAdmissionEnquiries() {
     const tbody = document.getElementById('enquiryTableBody');
@@ -657,11 +736,9 @@ async function loadAdmissionEnquiries() {
         try {
             snap = await db.collection("admissionEnquiries").orderBy("createdAt", "desc").get();
         } catch (e) {
-            // Fallback query if index or creation field is missing
             snap = await db.collection("admissionEnquiries").get();
         }
         
-        // Fallback: If no docs exist under 'admissionEnquiries', check 'admissions'
         if (!snap || snap.empty) {
             try {
                 snap = await db.collection("admissions").orderBy("timestamp", "desc").get();
@@ -693,7 +770,7 @@ async function loadAdmissionEnquiries() {
                 <td>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <button class="status-pill-ui paid" style="padding:4px 12px; font-size:0.75rem;" onclick="enrollEnquiryAsStudent('${doc.id}', '${encodeURIComponent(JSON.stringify(data))}')">Enroll</button>
-                        <button class="status-pill-ui pending" style="padding:4px 12px; font-size:0.75rem;" onclick="deleteAdmissionLead('${doc.id}', '${child.replace(/'/g, "\\'")}')"> Delete</button>
+                        <button class="status-pill-ui pending" style="padding:4px 12px; font-size:0.75rem;" onclick="deleteAdmissionLead('${doc.id}', '${child.replace(/'/g, "\\'")}')">Delete</button>
                     </div>
                 </td>
             `;
@@ -703,12 +780,11 @@ async function loadAdmissionEnquiries() {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:24px; font-weight:600;">✨ There are no enquiries.</td></tr>';
     }
 }
-// Delete Admission Enquiry
+
 async function deleteAdmissionLead(docId, childName) {
     if (!confirm(`Are you sure you want to delete the enquiry for "${childName}"?`)) return;
 
     try {
-        // Attempt deletion in both potential collection names
         await db.collection("admissionEnquiries").doc(docId).delete().catch(() => {});
         await db.collection("admissions").doc(docId).delete().catch(() => {});
         alert(`✓ Enquiry for "${childName}" removed successfully.`);
@@ -718,48 +794,7 @@ async function deleteAdmissionLead(docId, childName) {
     }
 }
 
-async function enrollEnquiryAsStudent(enquiryId, encodedData) {
-    const data = JSON.parse(decodeURIComponent(encodedData));
-    const child = data.childName || data.name || 'Student';
-    const grade = data.grade || data.class || 'Nursery';
-    
-    const feeStr = prompt(`Set Monthly Fee for enrolling ${child} (${grade}):`, "1500");
-    if (feeStr === null) return;
-    const fee = Number(feeStr) || 0;
-
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
-    const generatedId = `LG2026-${randomSuffix}`;
-    const defaultPassword = data.phone ? String(data.phone).slice(-10) : "123456";
-
-    try {
-        await db.collection("students").add({
-            studentId: generatedId,
-            password: defaultPassword,
-            name: child.toUpperCase(),
-            phone: data.phone || "0000000000",
-            class: grade,
-            monthlyFee: fee,
-            amount: fee,
-            totalPaid: 0,
-            lastPaidAmt: 0,
-            lastPaymentDate: "-",
-            isPaid: fee <= 0,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Delete from enquiries collection after successful enrollment
-        await db.collection("admissionEnquiries").doc(enquiryId).delete().catch(() => {});
-        await db.collection("admissions").doc(enquiryId).delete().catch(() => {});
-
-        alert(`🎉 ${child} enrolled!\nStudent ID: ${generatedId}\nPassword: ${defaultPassword}`);
-        loadAdmissionEnquiries();
-        loadAllData();
-    } catch (err) {
-        alert("Enrollment failed: " + err.message);
-    }
-}
-
-// --- BATCH MONTHLY BILLING ---
+// --- BATCH MONTHLY TUITION BILLING ---
 function openBillingModal() {
     document.getElementById('billingCustomFee').value = '';
     document.getElementById('billingModal').style.display = 'flex';
@@ -810,11 +845,11 @@ async function executeMonthlyBilling() {
     }
 }
 
-// --- EXPORT TO SHEETS ---
+// --- EXPORT TO CSV ---
 async function exportStudentsToCSV() {
     try {
         const snap = await db.collection("students").orderBy("class", "asc").get();
-        const rows = [["Student ID", "Class", "Student Name", "Phone", "Monthly Fee (INR)", "Due Amount (INR)", "Total Paid (INR)", "Status"].join(",")];
+        const rows = [["Student ID", "Class", "Student Name", "Phone", "Guardian Email", "Monthly Fee (INR)", "Due Amount (INR)", "Total Paid (INR)", "Status"].join(",")];
 
         snap.forEach(doc => {
             const s = doc.data() || {};
@@ -823,6 +858,7 @@ async function exportStudentsToCSV() {
                 `"${s.class || 'Unassigned'}"`,
                 `"${(s.name || '').replace(/"/g, '""')}"`,
                 `"${s.phone || ''}"`,
+                `"${s.parentEmail || ''}"`,
                 s.monthlyFee || 0,
                 s.amount || 0,
                 s.totalPaid || 0,
@@ -843,7 +879,7 @@ async function exportStudentsToCSV() {
     }
 }
 
-// --- INVOICES (WHATSAPP & SMS) ---
+// --- INVOICE DISPATCH ---
 function sendInvoice(channel) {
     if (!currentStudentData) return;
     const s = currentStudentData;
@@ -876,6 +912,7 @@ function sendInvoice(channel) {
 🔑 *PARENT PORTAL ACCESS*
 • *Student ID :* *${s.studentId || 'LG2026-N/A'}*
 • *Password   :* *${s.password || rawPhone.slice(-10)}*
+${s.parentEmail ? `• *Google ID  :* ${s.parentEmail}` : ''}
 
 💵 *ACCOUNT SUMMARY*
 \`\`\`
@@ -912,12 +949,7 @@ Status: ${isCleared ? 'PAID' : 'PENDING'}`;
     }
 }
 
-
-
-
-
-
-// --- ANNUAL ACADEMIC ROLLOVER & PROGRESSION ---
+// --- ANNUAL ACADEMIC ROLLOVER ---
 async function executeAnnualSessionRollover() {
     const confirmRollover = confirm(
         "⚠️ ANNUAL ACADEMIC SESSION ROLLOVER\n\n" +
@@ -929,7 +961,8 @@ async function executeAnnualSessionRollover() {
         "• Class 1 → Class 2\n" +
         "• Class 2 → Class 3\n" +
         "• Class 3 → Class 4\n" +
-        "• Class 4 → Graduated (Alumni)\n\n" +
+        "• Class 4 → Class 5\n" +
+        "• Class 5 → Graduated (Alumni)\n\n" +
         "Are you sure you want to advance all students to the next academic year?"
     );
 
@@ -943,7 +976,8 @@ async function executeAnnualSessionRollover() {
         "Class 1": "Class 2",
         "Class 2": "Class 3",
         "Class 3": "Class 4",
-        "Class 4": "Graduated"
+        "Class 4": "Class 5",
+        "Class 5": "Graduated"
     };
 
     try {
@@ -983,7 +1017,7 @@ async function executeAnnualSessionRollover() {
         alert(
             `🎉 Academic Progression Completed Successfully!\n\n` +
             `• Students Advanced: ${promotedCount}\n` +
-            `• Students Graduated (Class 4): ${graduatedCount}`
+            `• Students Graduated (Class 5): ${graduatedCount}`
         );
 
         await loadAllData();
@@ -991,5 +1025,108 @@ async function executeAnnualSessionRollover() {
     } catch (err) {
         console.error("Session rollover error:", err);
         alert("Error during session transition: " + err.message);
+    }
+}
+
+// --- LOAD PENDING UPI PAYMENT CLAIMS ---
+async function loadPendingPayments() {
+    const tbody = document.getElementById('pendingPaymentsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:16px;">Checking pending payments...</td></tr>';
+
+    try {
+        const snap = await db.collection("pendingPayments").where("status", "==", "PENDING").get();
+
+        if (snap.empty) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:24px; font-weight:600;">✨ No pending UPI payments to verify.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        snap.forEach(doc => {
+            const p = doc.data() || {};
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><b>${p.studentName}</b> <small style="color:var(--primary)">[${p.class}]</small><br><small style="color:var(--text-dim)">ID: ${p.studentId} | 📞 ${p.phone}</small></td>
+                <td style="color:#34d399; font-weight:800; font-size:1.05rem;">₹${Number(p.amount || 0).toLocaleString('en-IN')}</td>
+                <td><code style="background:rgba(255,255,255,0.08); padding:4px 8px; border-radius:4px; font-size:0.85rem; color:#facc15;">${p.utrNumber}</code></td>
+                <td><small style="color:var(--text-dim)">${p.submittedAtStr || '-'}</small></td>
+                <td>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="status-pill-ui paid" style="padding:4px 12px; font-size:0.75rem;" onclick="approvePaymentClaim('${doc.id}', '${p.studentDocId}', ${p.amount}, '${p.utrNumber}')">✓ Approve & Settle</button>
+                        <button class="status-pill-ui pending" style="padding:4px 12px; font-size:0.75rem;" onclick="rejectPaymentClaim('${doc.id}', '${p.studentName.replace(/'/g, "\\'")}', '${p.utrNumber}')">✗ Reject</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; padding:18px;">Error: ${err.message}</td></tr>`;
+    }
+}
+
+// --- APPROVE AND SETTLE BALANCE ---
+async function approvePaymentClaim(claimId, studentDocId, amt, utr) {
+    if (!confirm(`Confirm you received ₹${amt} in the school bank account with UTR: ${utr}?`)) return;
+
+    try {
+        const studentRef = db.collection("students").doc(studentDocId);
+        const studentDoc = await studentRef.get();
+
+        if (!studentDoc.exists) {
+            alert("Student record not found.");
+            return;
+        }
+
+        const student = studentDoc.data();
+        const currentDue = Number(student.amount || 0);
+        const newDue = Math.max(0, currentDue - amt);
+        const newTotalPaid = Number(student.totalPaid || 0) + amt;
+        const nowStr = new Date().toLocaleString('en-IN');
+
+        const batch = db.batch();
+
+        batch.update(studentRef, {
+            amount: newDue,
+            totalPaid: newTotalPaid,
+            lastPaidAmt: amt,
+            lastPaymentDate: nowStr,
+            isPaid: (newDue <= 0)
+        });
+
+        const histRef = studentRef.collection("paymentHistory").doc();
+        batch.set(histRef, {
+            amount: amt,
+            type: "payment",
+            method: "UPI Direct (Verified)",
+            note: `UPI UTR Ref: ${utr}`,
+            remainingDue: newDue,
+            date: nowStr,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        batch.delete(db.collection("pendingPayments").doc(claimId));
+
+        await batch.commit();
+
+        alert(`🎉 Payment of ₹${amt} verified and applied to ${student.name}'s balance!`);
+        loadPendingPayments();
+        loadAllData();
+    } catch (err) {
+        alert("Error approving payment: " + err.message);
+    }
+}
+
+// --- REJECT PAYMENT CLAIM ---
+async function rejectPaymentClaim(claimId, studentName, utr) {
+    const reason = prompt(`Reason for rejecting payment claim (UTR: ${utr}) for ${studentName}:`, "UTR not found in school bank statement");
+    if (reason === null) return;
+
+    try {
+        await db.collection("pendingPayments").doc(claimId).delete();
+        alert(`Payment claim rejected and removed.`);
+        loadPendingPayments();
+    } catch (err) {
+        alert("Error rejecting claim: " + err.message);
     }
 }
