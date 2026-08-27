@@ -1,7 +1,7 @@
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyCFv0Pmc8a684gCO7e96pZF2dEma0Basr4",
-    authDomain: "school-management-7570a.firebaseapp.com",
+    authDomain: "littlegardenplayschool.vercel.app",
     projectId: "school-management-7570a",
     storageBucket: "school-management-7570a.firebasestorage.app",
     messagingSenderId: "1001418504336",
