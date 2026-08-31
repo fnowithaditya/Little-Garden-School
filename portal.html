@@ -55,6 +55,7 @@
     </style>
 </head>
 <body>
+    
     <div class="glow-orb" id="orb-1"></div>
     <div class="glow-orb" id="orb-2"></div>
 
@@ -109,6 +110,19 @@
         <!-- 3. PARENT DASHBOARD -->
         <section id="portal-dashboard-view" style="display: none; flex-direction: column; gap: 24px;">
             
+
+<!-- MONTH-BY-MONTH FEE STATUS CARD -->
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 1.15rem;">📅 Monthly Fee Status Tracker</h3>
+        <span class="badge-pill" style="font-size: 0.75rem;">Academic Year 2026–27</span>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 12px;">
+        Track settled and pending dues for each month.
+    </p>
+    <div id="parentMonthlyGrid" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+</div>
+
             <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                 <div>
                     <span class="badge-pill" style="margin-bottom: 8px;">Student Profile</span>
@@ -135,6 +149,20 @@
                     <h2 id="p-due-amt" style="color: #ef4444;">₹0</h2>
                 </div>
             </div>
+
+            <!-- MONTH-BY-MONTH FEE STATUS TRACKER -->
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem;">📅 Monthly Fee Records</h3>
+                        <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 4px;">Month-by-month breakdown of billed, cleared, and pending school dues.</p>
+                    </div>
+                </div>
+                <div id="parentMonthlyGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 12px;"></div>
+            </div>
+
+            <!-- ZERO-FEE DIRECT UPI PAYMENT CARD -->
+            <div class="glass-card" style="background: radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);">
 
             <!-- ZERO-FEE DIRECT UPI PAYMENT CARD -->
             <div class="glass-card" style="background: radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);">
