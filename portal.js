@@ -15,6 +15,38 @@ const auth = app.auth();
 let activeStudent = null;
 let fullReceiptText = "";
 
+// --- MONTH HELPER ---
+function getMonthListForStudent(admissionMonthKey) {
+    const months = [];
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+
+    let startYear = curYear;
+    let startMonth = curMonth;
+
+    if (admissionMonthKey && typeof admissionMonthKey === 'string' && admissionMonthKey.includes('-')) {
+        const parts = admissionMonthKey.split('-');
+        startYear = parseInt(parts[0], 10);
+        startMonth = parseInt(parts[1], 10);
+    }
+
+    let y = startYear;
+    let m = startMonth;
+
+    while (y < curYear || (y === curYear && m <= curMonth)) {
+        const key = `${y}-${String(m).padStart(2, '0')}`;
+        const label = new Date(y, m - 1).toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        months.push({ key, label });
+        m++;
+        if (m > 12) {
+            m = 1;
+            y++;
+        }
+    }
+    return months;
+}
+
 // --- 1. AUTO-RESTORE SESSION ON REFRESH ---
 window.addEventListener('DOMContentLoaded', async () => {
     const savedSession = localStorage.getItem('lg_parent_session');
@@ -126,11 +158,90 @@ async function handleParentLogin(e) {
     }
 }
 
-// --- 4. RENDER DASHBOARD ---
+// --- 4. MONTH SYNC & DASHBOARD RENDER ---
+async function syncAndRenderParentMonths() {
+    let ledger = activeStudent.monthlyLedger || {};
+    const existingKeys = Object.keys(ledger).sort();
+
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const startMonthKey = activeStudent.admissionMonth || (existingKeys.length > 0 ? existingKeys[0] : currentKey);
+
+    const requiredMonths = getMonthListForStudent(startMonthKey);
+    let addedDue = 0;
+    let modified = false;
+
+    const tuitionFee = Number(activeStudent.monthlyFee || 0);
+    const transportFee = activeStudent.hasTransport ? Number(activeStudent.transportFee || 0) : 0;
+    const totalMonthly = tuitionFee + transportFee;
+
+    requiredMonths.forEach(m => {
+        if (!ledger[m.key] && totalMonthly > 0) {
+            ledger[m.key] = {
+                monthName: m.label,
+                billed: totalMonthly,
+                paid: 0,
+                status: "UNPAID",
+                tuitionFee: tuitionFee,
+                transportFee: transportFee
+            };
+            addedDue += totalMonthly;
+            modified = true;
+        }
+    });
+
+    if (modified) {
+        const newTotalDue = (Number(activeStudent.amount) || 0) + addedDue;
+        await db.collection("students").doc(activeStudent.id).update({
+            monthlyLedger: ledger,
+            amount: newTotalDue,
+            isPaid: (newTotalDue <= 0)
+        });
+        activeStudent.monthlyLedger = ledger;
+        activeStudent.amount = newTotalDue;
+    }
+
+    const grid = document.getElementById('parentMonthlyGrid');
+    if (!grid) return;
+
+    const keys = Object.keys(ledger).sort();
+    let html = '';
+
+    keys.forEach(k => {
+        const item = ledger[k];
+        const remaining = (item.billed || 0) - (item.paid || 0);
+
+        let color = '#34d399';
+        let bg = 'rgba(16, 185, 129, 0.12)';
+        let border = 'rgba(16, 185, 129, 0.35)';
+        let statusBadge = `✓ Paid Full (₹${item.paid})`;
+
+        if (item.status === 'UNPAID') {
+            color = '#f87171';
+            bg = 'rgba(239, 68, 68, 0.12)';
+            border = 'rgba(239, 68, 68, 0.35)';
+            statusBadge = `⚠️ Due: ₹${remaining}`;
+        } else if (item.status === 'PARTIAL') {
+            color = '#facc15';
+            bg = 'rgba(234, 179, 8, 0.12)';
+            border = 'rgba(234, 179, 8, 0.35)';
+            statusBadge = `Paid ₹${item.paid} / Due ₹${remaining}`;
+        }
+
+        html += `
+            <div style="flex: 1; min-width: 140px; background: ${bg}; border: 1px solid ${border}; border-radius: var(--radius-md); padding: 12px; text-align: center;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #ffffff; display: block;">${item.monthName || k}</span>
+                <span style="font-size: 0.75rem; color: ${color}; font-weight: 800; display: block; margin-top: 4px;">${statusBadge}</span>
+                <small style="font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 2px;">Billed: ₹${item.billed}</small>
+            </div>
+        `;
+    });
+
+    grid.innerHTML = html;
+}
+
 async function renderParentDashboard() {
-   
-const emailDisplay = activeStudent.parentEmail ? ` | Email: ${activeStudent.parentEmail}` : '';
-document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.class || 'N/A'} | Guardian Contact: +91 ${activeStudent.phone}${emailDisplay}`;
+    const emailDisplay = activeStudent.parentEmail ? ` | Email: ${activeStudent.parentEmail}` : '';
     document.getElementById('portal-login-view').style.display = 'none';
     const dash = document.getElementById('portal-dashboard-view');
     dash.style.display = 'flex';
@@ -145,7 +256,7 @@ document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.cl
         </span>
     `;
     
-    document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.class || 'N/A'} | Guardian Contact: +91 ${activeStudent.phone}`;
+    document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.class || 'N/A'} | Guardian Contact: +91 ${activeStudent.phone}${emailDisplay}`;
     document.getElementById('p-monthly-fee').innerText = `₹${Number(activeStudent.monthlyFee || 0).toLocaleString('en-IN')}`;
     document.getElementById('p-total-paid').innerText = `₹${Number(activeStudent.totalPaid || 0).toLocaleString('en-IN')}`;
     
@@ -166,6 +277,7 @@ document.getElementById('p-student-meta').innerText = `Class: ${activeStudent.cl
         document.getElementById('payAmountInput').value = due;
     }
 
+    await syncAndRenderParentMonths();
     await loadParentLedger();
 }
 
@@ -240,7 +352,9 @@ function initiateFeePayment() {
             <p style="color:var(--text-dim); font-size:0.78rem;">Settling fees for <b>${activeStudent.name}</b></p>
             
             <div class="qr-frame">
-                <img src="qr.png" alt="Little Garden UPI QR" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}'">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}" 
+                     alt="Little Garden UPI QR" 
+                     style="width: 175px; height: 175px; display: block; object-fit: contain; border-radius: 6px;">
             </div>
 
             <div>
@@ -306,6 +420,14 @@ async function openCompleteReceipt() {
     const currentDate = new Date().toLocaleDateString('en-IN');
     const displayStudentId = activeStudent.studentId || `LG2026-${activeStudent.id.slice(0, 3).toUpperCase()}`;
 
+    const ledger = activeStudent.monthlyLedger || {};
+    let monthlyStatusList = "";
+    Object.keys(ledger).sort().forEach((k, idx) => {
+        const item = ledger[k];
+        const rem = (item.billed || 0) - (item.paid || 0);
+        monthlyStatusList += `${idx + 1}. ${item.monthName || k}: Billed ₹${item.billed} | Paid ₹${item.paid} [${item.status}${rem > 0 ? ` - Due ₹${rem}` : ''}]\n`;
+    });
+
     let historyTable = "";
     const snap = await db.collection("students").doc(activeStudent.id)
         .collection("paymentHistory")
@@ -328,8 +450,11 @@ Student ID      : ${displayStudentId}
 Class           : ${activeStudent.class}
 Contact         : ${activeStudent.phone}
 ----------------------------------------
-Monthly Fee Rate : ₹${activeStudent.monthlyFee}
+Base Monthly Fee : ₹${activeStudent.monthlyFee}
 ----------------------------------------
+📅 MONTHLY CLEARANCE STATUS
+----------------------------------------
+${monthlyStatusList || 'No monthly records found.\n'}----------------------------------------
 📜 TRANSACTION LEDGER
 ----------------------------------------
 ${historyTable || 'No transactions recorded.\n'}----------------------------------------
