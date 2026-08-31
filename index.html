@@ -31,6 +31,7 @@
 
 </head>
 <body>
+    
     <div class="glow-orb" id="orb-1"></div>
     <div class="glow-orb" id="orb-2"></div>
     
@@ -314,29 +315,46 @@
         const db = firebase.firestore();
 
         async function handleAdmissionSubmit(e) {
-            e.preventDefault();
-            const btn = e.target.querySelector('button');
-            btn.innerText = "Submitting...";
-            btn.disabled = true;
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.innerText = "Submitting...";
+    btn.disabled = true;
 
-            try {
-                await db.collection("admissionEnquiries").add({
-                    parentName: document.getElementById('parentFullName').value.trim(),
-                    phone: document.getElementById('parentContact').value.trim(),
-                    childName: document.getElementById('childFullName').value.trim(),
-                    grade: document.getElementById('targetGrade').value,
-                    message: document.getElementById('enquiryNote').value.trim(),
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                alert("Thank you! Your enquiry has been received. Our admissions team will contact you shortly.");
-                document.getElementById('enquiryForm').reset();
-            } catch (err) {
-                alert("Submission failed: " + err.message);
-            } finally {
-                btn.innerText = "Submit Admission Enquiry";
-                btn.disabled = false;
-            }
-        }
+    const parentName = document.getElementById('parentFullName').value.trim();
+    const phone = document.getElementById('parentContact').value.trim();
+    const childName = document.getElementById('childFullName').value.trim();
+    const grade = document.getElementById('targetGrade').value;
+    const message = document.getElementById('enquiryNote').value.trim();
+
+    try {
+        // 1. Save Enquiry to Firestore Database
+        await db.collection("admissionEnquiries").add({
+            parentName: parentName,
+            phone: phone,
+            childName: childName,
+            grade: grade,
+            message: message,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. Dispatch Instant Email Alert via EmailJS
+        emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+            parent_name: parentName,
+            child_name: childName,
+            phone: phone,
+            grade: grade,
+            message: message || "No extra notes"
+        }).catch(mailErr => console.warn("Email alert warning:", mailErr));
+
+        alert("Thank you! Your enquiry has been received. Our admissions team will contact you shortly.");
+        document.getElementById('enquiryForm').reset();
+    } catch (err) {
+        alert("Submission failed: " + err.message);
+    } finally {
+        btn.innerText = "Submit Admission Enquiry";
+        btn.disabled = false;
+    }
+}
     </script>
     <script>
     let lastScrollY = window.scrollY;
@@ -356,5 +374,7 @@
         lastScrollY = currentScrollY;
     }, { passive: true });
 </script>
+
+
 </body>
 </html>
