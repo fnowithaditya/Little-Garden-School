@@ -175,6 +175,7 @@ async function syncAndRenderParentMonths() {
     const transportFee = activeStudent.hasTransport ? Number(activeStudent.transportFee || 0) : 0;
     const totalMonthly = tuitionFee + transportFee;
 
+    // 1. Ensure required months exist
     requiredMonths.forEach(m => {
         if (!ledger[m.key] && totalMonthly > 0) {
             ledger[m.key] = {
@@ -190,6 +191,22 @@ async function syncAndRenderParentMonths() {
         }
     });
 
+    // 2. Reconcile added dues / adjustments into the current month
+    const totalLedgerDue = Object.values(ledger).reduce(
+        (sum, item) => sum + ((item.billed || 0) - (item.paid || 0)), 
+        0
+    );
+    const currentActualDue = Number(activeStudent.amount || 0) + addedDue;
+
+    if (currentActualDue > totalLedgerDue && ledger[currentKey]) {
+        const difference = currentActualDue - totalLedgerDue;
+        ledger[currentKey].billed = (ledger[currentKey].billed || 0) + difference;
+        const currentMonthDue = (ledger[currentKey].billed || 0) - (ledger[currentKey].paid || 0);
+        ledger[currentKey].status = currentMonthDue <= 0 ? "PAID" : ((ledger[currentKey].paid || 0) > 0 ? "PARTIAL" : "UNPAID");
+        modified = true;
+    }
+
+    // 3. Save to Firestore if changes occurred
     if (modified) {
         const newTotalDue = (Number(activeStudent.amount) || 0) + addedDue;
         await db.collection("students").doc(activeStudent.id).update({
@@ -201,6 +218,7 @@ async function syncAndRenderParentMonths() {
         activeStudent.amount = newTotalDue;
     }
 
+    // 4. Render HTML cards
     const grid = document.getElementById('parentMonthlyGrid');
     if (!grid) return;
 
@@ -214,7 +232,7 @@ async function syncAndRenderParentMonths() {
         let color = '#34d399';
         let bg = 'rgba(16, 185, 129, 0.12)';
         let border = 'rgba(16, 185, 129, 0.35)';
-        let statusBadge = `✓ Paid Full (₹${item.paid})`;
+        let statusBadge = `✓ Paid Full (₹${item.paid || 0})`;
 
         if (item.status === 'UNPAID') {
             color = '#f87171';
@@ -232,14 +250,13 @@ async function syncAndRenderParentMonths() {
             <div style="flex: 1; min-width: 140px; background: ${bg}; border: 1px solid ${border}; border-radius: var(--radius-md); padding: 12px; text-align: center;">
                 <span style="font-size: 0.85rem; font-weight: 700; color: #ffffff; display: block;">${item.monthName || k}</span>
                 <span style="font-size: 0.75rem; color: ${color}; font-weight: 800; display: block; margin-top: 4px;">${statusBadge}</span>
-                <small style="font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 2px;">Billed: ₹${item.billed}</small>
+                <small style="font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 2px;">Billed: ₹${item.billed || 0}</small>
             </div>
         `;
     });
 
     grid.innerHTML = html;
 }
-
 async function renderParentDashboard() {
     const emailDisplay = activeStudent.parentEmail ? ` | Email: ${activeStudent.parentEmail}` : '';
     document.getElementById('portal-login-view').style.display = 'none';
