@@ -19,6 +19,160 @@ let currentStudentData = null;
 let generatedReceiptText = "";
 let editingStudentDocId = null;
 
+// --- MONTHLY BILLING & LEDGER HELPERS ---
+// Generates months starting only from the student's admission date up to the current month
+function getMonthListForStudent(admissionMonthKey) {
+    const months = [];
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1; // 1-12
+
+    let startYear = curYear;
+    let startMonth = curMonth;
+
+    if (admissionMonthKey && typeof admissionMonthKey === 'string' && admissionMonthKey.includes('-')) {
+        const parts = admissionMonthKey.split('-');
+        startYear = parseInt(parts[0], 10);
+        startMonth = parseInt(parts[1], 10);
+    }
+
+    let y = startYear;
+    let m = startMonth;
+
+    while (y < curYear || (y === curYear && m <= curMonth)) {
+        const key = `${y}-${String(m).padStart(2, '0')}`;
+        const label = new Date(y, m - 1).toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        months.push({ key, label });
+        m++;
+        if (m > 12) {
+            m = 1;
+            y++;
+        }
+    }
+    return months;
+}
+
+async function autoSyncMonthlyBillingForStudents(studentsSnap) {
+    const batch = db.batch();
+    let hasUpdates = false;
+
+    studentsSnap.forEach(doc => {
+        const s = doc.data() || {};
+        if (s.class === "Graduated") return;
+
+        const tuitionFee = Number(s.monthlyFee || 0);
+        const transportFee = s.hasTransport ? Number(s.transportFee || 0) : 0;
+        const totalMonthly = tuitionFee + transportFee;
+        if (totalMonthly <= 0) return;
+
+        let ledger = s.monthlyLedger || {};
+        const existingKeys = Object.keys(ledger).sort();
+
+        // Determine student's start month: use admissionMonth or the earliest recorded month
+        const now = new Date();
+        const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const startMonthKey = s.admissionMonth || (existingKeys.length > 0 ? existingKeys[0] : currentKey);
+
+        const requiredMonths = getMonthListForStudent(startMonthKey);
+        let addedDue = 0;
+        let modified = false;
+
+        requiredMonths.forEach(m => {
+            if (!ledger[m.key]) {
+                ledger[m.key] = {
+                    monthName: m.label,
+                    billed: totalMonthly,
+                    paid: 0,
+                    status: "UNPAID",
+                    tuitionFee: tuitionFee,
+                    transportFee: transportFee
+                };
+                addedDue += totalMonthly;
+                modified = true;
+            }
+        });
+
+        if (modified) {
+            hasUpdates = true;
+            const newTotalDue = (Number(s.amount) || 0) + addedDue;
+            batch.update(doc.ref, {
+                monthlyLedger: ledger,
+                amount: newTotalDue,
+                isPaid: (newTotalDue <= 0)
+            });
+        }
+    });
+
+    if (hasUpdates) {
+        await batch.commit();
+    }
+}
+
+function allocatePaymentToMonths(ledger, payAmt) {
+    let remainingPayment = payAmt;
+    const sortedKeys = Object.keys(ledger || {}).sort();
+
+    sortedKeys.forEach(mKey => {
+        if (remainingPayment <= 0) return;
+        const entry = ledger[mKey];
+        const monthDue = (entry.billed || 0) - (entry.paid || 0);
+
+        if (monthDue > 0) {
+            const settle = Math.min(remainingPayment, monthDue);
+            entry.paid = (entry.paid || 0) + settle;
+            remainingPayment -= settle;
+
+            if (entry.paid >= entry.billed) {
+                entry.status = "PAID";
+            } else if (entry.paid > 0) {
+                entry.status = "PARTIAL";
+            }
+        }
+    });
+
+    return ledger;
+}
+
+function renderMonthGridUI(ledger, containerElement) {
+    if (!containerElement) return;
+    const keys = Object.keys(ledger || {}).sort();
+    if (keys.length === 0) {
+        containerElement.innerHTML = '<small style="color:var(--text-dim)">No billing history logged yet.</small>';
+        return;
+    }
+
+    let html = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0;">';
+    keys.forEach(k => {
+        const item = ledger[k];
+        const due = (item.billed || 0) - (item.paid || 0);
+        let color = '#34d399';
+        let bg = 'rgba(16, 185, 129, 0.15)';
+        let border = 'rgba(16, 185, 129, 0.35)';
+        let statusText = `✓ Paid (₹${item.paid})`;
+
+        if (item.status === 'UNPAID') {
+            color = '#f87171';
+            bg = 'rgba(239, 68, 68, 0.15)';
+            border = 'rgba(239, 68, 68, 0.35)';
+            statusText = `Due: ₹${due}`;
+        } else if (item.status === 'PARTIAL') {
+            color = '#facc15';
+            bg = 'rgba(234, 179, 8, 0.15)';
+            border = 'rgba(234, 179, 8, 0.35)';
+            statusText = `Paid ₹${item.paid} / Due ₹${due}`;
+        }
+
+        html += `
+            <div style="background:${bg}; border:1px solid ${border}; border-radius:6px; padding:6px 10px; font-size:0.75rem;">
+                <b style="color:#ffffff; display:block;">${item.monthName || k}</b>
+                <span style="color:${color}; font-weight:700;">${statusText}</span>
+            </div>
+        `;
+    });
+    html += '</div>';
+    containerElement.innerHTML = html;
+}
+
 // --- AUTH STATE OBSERVER ---
 auth.onAuthStateChanged(user => {
     const loginOverlay = document.getElementById('loginOverlay');
@@ -85,11 +239,14 @@ async function loadAllData() {
 
     try {
         const snap = await db.collection("students").orderBy("name", "asc").get();
+        await autoSyncMonthlyBillingForStudents(snap);
+
+        const updatedSnap = await db.collection("students").orderBy("name", "asc").get();
         allStudentsList = [];
         let totalCount = 0;
         let totalDues = 0;
 
-        snap.forEach(doc => {
+        updatedSnap.forEach(doc => {
             const s = doc.data() || {};
             totalCount++;
             const dueAmt = Number(s.amount || 0);
@@ -104,6 +261,9 @@ async function loadAllData() {
                 class: s.class || 'Unassigned',
                 phone: s.phone || 'No Phone',
                 monthlyFee: Number(s.monthlyFee || 0),
+                hasTransport: s.hasTransport || false,
+                transportFee: Number(s.transportFee || 0),
+                monthlyLedger: s.monthlyLedger || {},
                 amount: dueAmt,
                 totalPaid: Number(s.totalPaid || 0),
                 isPaid: s.isPaid ?? (dueAmt <= 0),
@@ -114,17 +274,10 @@ async function loadAllData() {
 
         document.getElementById('stat-count').innerText = totalCount;
         document.getElementById('stat-dues').innerText = `₹${totalDues.toLocaleString('en-IN')}`;
-
-        if (allStudentsList.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim);">No student records found. Add one above!</td></tr>';
-            return;
-        }
-
         renderStudentTable(allStudentsList);
         populateAdminStudentDropdown();
     } catch (err) {
         console.error("Error loading data:", err);
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444;">Failed to load data: ${err.message}</td></tr>`;
     }
 }
 
@@ -183,6 +336,22 @@ async function addStudentToFirebase(e) {
     const generatedId = `LG2026-${randomSuffix}`;
     const defaultPassword = phone ? phone.slice(-10) : "123456";
 
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthLabel = now.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+
+    const initialMonthlyLedger = {};
+    if (initialDue > 0) {
+        initialMonthlyLedger[currentMonthKey] = {
+            monthName: currentMonthLabel,
+            billed: initialDue,
+            paid: 0,
+            status: "UNPAID",
+            tuitionFee: tuitionFee,
+            transportFee: transportFee
+        };
+    }
+
     try {
         await db.collection("students").add({
             studentId: generatedId,
@@ -194,6 +363,8 @@ async function addStudentToFirebase(e) {
             monthlyFee: tuitionFee,
             hasTransport: hasTransport,
             transportFee: transportFee,
+            admissionMonth: currentMonthKey, // e.g. "2026-08"
+            monthlyLedger: initialMonthlyLedger,
             amount: initialDue,
             totalPaid: 0,
             lastPaidAmt: 0,
@@ -202,7 +373,7 @@ async function addStudentToFirebase(e) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert(`✅ Student Registered Successfully!\n\nID: ${generatedId}\nEmail: ${parentEmail || 'Not Linked'}\nPassword: ${defaultPassword}\nTuition Fee: ₹${tuitionFee}\nTransport Fee: ₹${transportFee}\nTotal Opening Due: ₹${initialDue}`);
+        alert(`✅ Student Registered Successfully!\n\nID: ${generatedId}\nEmail: ${parentEmail || 'Not Linked'}\nPassword: ${defaultPassword}\nTuition Fee: ₹${tuitionFee}\nTransport Fee: ₹${transportFee}\nInitial Billed Month: ${currentMonthLabel}\nTotal Opening Due: ₹${initialDue}`);
         document.getElementById('addStudentForm').reset();
         const transportBox = document.getElementById('transportFeeInputBox');
         if (transportBox) transportBox.style.display = 'none';
@@ -238,6 +409,22 @@ async function enrollEnquiryAsStudent(enquiryId, encodedData) {
     const generatedId = `LG2026-${randomSuffix}`;
     const defaultPassword = data.phone ? String(data.phone).slice(-10) : "123456";
 
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthLabel = now.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+
+    const initialMonthlyLedger = {};
+    if (totalInitialDue > 0) {
+        initialMonthlyLedger[currentMonthKey] = {
+            monthName: currentMonthLabel,
+            billed: totalInitialDue,
+            paid: 0,
+            status: "UNPAID",
+            tuitionFee: tuitionFee,
+            transportFee: transportFee
+        };
+    }
+
     try {
         await db.collection("students").add({
             studentId: generatedId,
@@ -249,6 +436,7 @@ async function enrollEnquiryAsStudent(enquiryId, encodedData) {
             monthlyFee: tuitionFee,
             hasTransport: needsTransport,
             transportFee: transportFee,
+            monthlyLedger: initialMonthlyLedger,
             amount: totalInitialDue,
             totalPaid: 0,
             lastPaidAmt: 0,
@@ -325,18 +513,31 @@ async function executeMonthlyTransportBilling() {
 
 // --- SEARCH & FILTER ---
 function filterStudents() {
-    const searchVal = document.getElementById('studentSearch').value.toLowerCase();
+    const searchVal = document.getElementById('studentSearch').value.toLowerCase().trim();
     const classVal = document.getElementById('classFilter').value;
-    const rows = document.querySelectorAll("#studentData tr");
 
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name') || '';
-        const stId = row.getAttribute('data-id') || '';
-        const stClass = row.getAttribute('data-class') || '';
-        const matchSearch = name.includes(searchVal) || stId.includes(searchVal);
-        const matchClass = (classVal === 'ALL') || (stClass === classVal);
-        row.style.display = (matchSearch && matchClass) ? '' : 'none';
+    // Filter students from the dataset matching search text and class selection
+    const filteredStudents = allStudentsList.filter(s => {
+        const matchSearch = !searchVal || 
+            s.name.toLowerCase().includes(searchVal) || 
+            s.studentId.toLowerCase().includes(searchVal) || 
+            String(s.phone).includes(searchVal);
+
+        const matchClass = (classVal === 'ALL') || (s.class === classVal);
+
+        return matchSearch && matchClass;
     });
+
+    // Recalculate totals for the filtered class view
+    const filteredCount = filteredStudents.length;
+    const filteredDues = filteredStudents.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+
+    // Update the Dashboard statistic cards dynamically
+    document.getElementById('stat-count').innerText = filteredCount;
+    document.getElementById('stat-dues').innerText = `₹${filteredDues.toLocaleString('en-IN')}`;
+
+    // Render only the filtered students in the table
+    renderStudentTable(filteredStudents);
 }
 
 // --- PROFILE & QUICK ACTIONS MODAL ---
@@ -359,6 +560,11 @@ async function openProfile(studentId) {
     document.getElementById('quick-pay-note').value = '';
     document.getElementById('custom-entry-amt').value = '';
     document.getElementById('custom-entry-note').value = '';
+
+    const monthContainer = document.getElementById('admin-modal-month-grid');
+    if (monthContainer) {
+        renderMonthGridUI(currentStudentData.monthlyLedger, monthContainer);
+    }
 
     document.getElementById('studentModal').style.display = 'flex';
     fetchPaymentHistory(studentId, 'history-timeline', currentStudentData);
@@ -384,6 +590,7 @@ async function recordNewPayment() {
     const newTotalPaid = Number(currentStudentData.totalPaid || 0) + payAmt;
     const nowStr = new Date().toLocaleString('en-IN');
 
+    const updatedLedger = allocatePaymentToMonths(currentStudentData.monthlyLedger || {}, payAmt);
     const docRef = db.collection("students").doc(currentStudentId);
 
     await docRef.update({
@@ -391,6 +598,7 @@ async function recordNewPayment() {
         totalPaid: newTotalPaid,
         lastPaidAmt: payAmt,
         lastPaymentDate: nowStr,
+        monthlyLedger: updatedLedger,
         isPaid: (newDue <= 0)
     });
 
@@ -615,7 +823,6 @@ function loadStudentToAdminEditor() {
     document.getElementById('admin-view-id').innerText = st.studentId || `LG2026-${st.id.slice(0, 3).toUpperCase()}`;
     document.getElementById('admin-view-pass').innerText = st.password || String(st.phone || '').slice(-10);
     
-    // Fill all form fields
     const nameField = document.getElementById('admin-student-name');
     if (nameField) nameField.value = st.name || "";
 
@@ -686,8 +893,6 @@ async function saveAdminStudentUpdates() {
         });
 
         alert("✓ Changes saved successfully to Firestore!");
-        
-        // Reload in-memory list and keep selected state
         await loadAllData();
         
         const select = document.getElementById('adminStudentSelect');
@@ -895,6 +1100,16 @@ function sendInvoice(channel) {
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
     const isCleared = Number(s.amount || 0) <= 0;
 
+    const ledger = s.monthlyLedger || {};
+    const unpaidMonths = Object.keys(ledger)
+        .filter(k => ledger[k].status !== 'PAID')
+        .map(k => `• ${ledger[k].monthName || k}: Due ₹${(ledger[k].billed || 0) - (ledger[k].paid || 0)}`)
+        .join('\n');
+
+    const monthSummaryText = unpaidMonths.length > 0 
+        ? `\n📌 *PENDING MONTHS:*\n${unpaidMonths}\n` 
+        : `\n✨ *All billed months are cleared!*\n`;
+
     if (channel === 'whatsapp') {
         const waMsg = 
 `🏫 *LITTLE GARDEN SCHOOL*
@@ -922,7 +1137,7 @@ Total Fees Paid     : ₹${Number(s.totalPaid || 0).toLocaleString('en-IN')}
 ------------------------------
 TOTAL BALANCE DUE   : ₹${Number(s.amount || 0).toLocaleString('en-IN')}
 ------------------------------
-\`\`\`
+\`\`\`${monthSummaryText}
 📌 *Status :* ${isCleared ? "🟢 PAID IN FULL" : "🔴 PAYMENT PENDING"}
 
 ━━━━━━━━━━━━━━━━━━━━━
@@ -1084,6 +1299,7 @@ async function approvePaymentClaim(claimId, studentDocId, amt, utr) {
         const newTotalPaid = Number(student.totalPaid || 0) + amt;
         const nowStr = new Date().toLocaleString('en-IN');
 
+        const updatedLedger = allocatePaymentToMonths(student.monthlyLedger || {}, amt);
         const batch = db.batch();
 
         batch.update(studentRef, {
@@ -1091,6 +1307,7 @@ async function approvePaymentClaim(claimId, studentDocId, amt, utr) {
             totalPaid: newTotalPaid,
             lastPaidAmt: amt,
             lastPaymentDate: nowStr,
+            monthlyLedger: updatedLedger,
             isPaid: (newDue <= 0)
         });
 
