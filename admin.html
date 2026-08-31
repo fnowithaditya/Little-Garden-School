@@ -9,6 +9,7 @@
     <link rel="icon" type="image/png" href="images/logo 1.png">
 </head>
 <body>
+    
     <div class="glow-orb" id="orb-1"></div>
     <div class="glow-orb" id="orb-2"></div>
 
@@ -56,11 +57,11 @@
         <section id="dashboard-view" class="page-view" style="display: block;">
             <div class="stats-grid" style="margin-bottom: 24px;">
                 <div class="glass-card stat-item">
-                    <small>Total Enrolled Students</small>
+                    <small>Total Students</small>
                     <h2 id="stat-count">0</h2>
                 </div>
                 <div class="glass-card stat-item">
-                    <small>Total School Outstanding Dues</small>
+                    <small>Total Dues To Collect </small>
                     <h2 id="stat-dues" style="color: #ef4444;">₹0</h2>
                 </div>
             </div>
@@ -102,7 +103,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Student & Guardian Details</th>
+                            <th>Student Details</th>
                             <th>Current Due</th>
                             <th>Last Payment</th>
                             <th>Status</th>
@@ -325,6 +326,14 @@
                 </div>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
+
+
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
+                <h4 style="font-size: 0.9rem; margin-bottom: 6px; color: #a5b4fc;">📅 Monthly Fee Records</h4>
+                <div id="admin-modal-month-grid"></div>
+            </div>
+
+
 
             <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
                 <h4 style="font-size: 0.9rem; margin-bottom: 10px; color: #34d399;">💵 Record Payment Settlement</h4>
