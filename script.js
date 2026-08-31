@@ -629,12 +629,37 @@ async function addCustomStudentEntry() {
 
     const currentDue = Number(currentStudentData.amount || 0);
     const newDue = (type === 'add') ? (currentDue + amt) : Math.max(0, currentDue - amt);
-    const nowStr = new Date().toLocaleString('en-IN');
+    const now = new Date();
+    const nowStr = now.toLocaleString('en-IN');
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthLabel = now.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+
+    // Update the current month's entry in monthlyLedger
+    const ledger = currentStudentData.monthlyLedger || {};
+    if (!ledger[currentMonthKey]) {
+        ledger[currentMonthKey] = {
+            monthName: currentMonthLabel,
+            billed: Number(currentStudentData.monthlyFee || 0) + (currentStudentData.hasTransport ? Number(currentStudentData.transportFee || 0) : 0),
+            paid: 0,
+            status: "UNPAID"
+        };
+    }
+
+    const currentMonthEntry = ledger[currentMonthKey];
+    if (type === 'add') {
+        currentMonthEntry.billed = (currentMonthEntry.billed || 0) + amt;
+    } else {
+        currentMonthEntry.billed = Math.max(0, (currentMonthEntry.billed || 0) - amt);
+    }
+
+    const remainingMonthDue = (currentMonthEntry.billed || 0) - (currentMonthEntry.paid || 0);
+    currentMonthEntry.status = remainingMonthDue <= 0 ? "PAID" : ((currentMonthEntry.paid || 0) > 0 ? "PARTIAL" : "UNPAID");
 
     const docRef = db.collection("students").doc(currentStudentId);
 
     await docRef.update({
         amount: newDue,
+        monthlyLedger: ledger,
         isPaid: (newDue <= 0)
     });
 
@@ -648,11 +673,10 @@ async function addCustomStudentEntry() {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    alert("Fee adjustment recorded!");
+    alert("Fee adjustment recorded and added to monthly ledger!");
     openProfile(currentStudentId);
     loadAllData();
 }
-
 // --- PAYMENT HISTORY & RECEIPT BUILDER ---
 async function fetchPaymentHistory(studentId, containerId, studentObj) {
     const container = document.getElementById(containerId);
